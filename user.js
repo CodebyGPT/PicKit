@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name               PicKit
 // @name:zh-CN         拾字（PicKit）
-// @namespace          https://github.com/username
-// @version            2025.12.10
+// @namespace          https://github.com/CodebyGPT/PicKit
+// @version            2025.12.12
 // @description        Reduce the number of mouse clicks for users
 // @description:zh-CN  帮你少点一次鼠标
-// @author             username
+// @author             CodebyGPT
 // @match              *://*/*
 // @icon               data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjx0aXRsZSB4bWxucz0iIj50b3VjaC10cmlwbGU8L3RpdGxlPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0ibTE3Ljk3NSAzLjRsMS0xLjc1cTEuMTc1LjY1IDEuODUgMS44MjVUMjEuNSA2cTAgLjY3NS0uMTc1IDEuMzEzdC0uNSAxLjE4N2wtMS43MjUtMXEuMi0uMzUuMy0uNzEyVDE5LjUgNnEwLS44LS40MTItMS41dC0xLjExMy0xLjFtLTQgMGwxLTEuNzVxMS4xNzUuNjUgMS44NSAxLjgyNVQxNy41IDZxMCAuNjc1LS4xNzUgMS4zMTN0LS41IDEuMTg3bC0xLjcyNS0xcS4yLS4zNS4zLS43MTJUMTUuNSA2cTAtLjgtLjQxMy0xLjV0LTEuMTEyLTEuMW0tMy41IDE4LjZxLS43IDAtMS4zMTItLjN0LTEuMDM4LS44NWwtNS40NS02LjkyNWwuNDc1LS41cS41LS41MjUgMS4yLS42MjV0MS4zLjI3NUw3LjUgMTQuMlY2cTAtLjQyNS4yODgtLjcxMlQ4LjUgNXQuNzI1LjI4OHQuMy43MTJ2NUgxN3ExLjI1IDAgMi4xMjUuODc1VDIwIDE0djRxMCAxLjY1LTEuMTc1IDIuODI1VDE2IDIyem0tNi4zLTEzLjVxLS4zMjUtLjU1LS41LTEuMTg3VDMuNSA2cTAtMi4wNzUgMS40NjMtMy41MzdUOC41IDF0My41MzggMS40NjNUMTMuNSA2cTAgLjY3NS0uMTc1IDEuMzEzdC0uNSAxLjE4N2wtMS43MjUtMXEuMi0uMzUuMy0uNzEyVDExLjUgNnEwLTEuMjUtLjg3NS0yLjEyNVQ4LjUgM3QtMi4xMjUuODc1VDUuNSA2cTAgLjQyNS4xLjc4OHQuMy43MTJ6Ii8+PC9zdmc+
 // @grant              GM_registerMenuCommand
@@ -17,6 +17,7 @@
 // @sandbox            DOM
 // @inject-into        content
 // @run-at             document-start
+// @supportURL         https://github.com/CodebyGPT/PicKit/issues
 // ==/UserScript==
 
 /*
