@@ -7,6 +7,7 @@
 ## 如何安装
 
 推荐前往**Greasy Fork**安装，支持自动更新：[https://greasyfork.org/zh-CN/scripts/558720-pickit](https://greasyfork.org/zh-CN/scripts/558720-pickit)
+用户脚本管理器推荐：Chromium 新版内核：[ScriptCat](https://docs.scriptcat.org/)；Chromium 旧版内核、Firefox：[Violentmonkey](https://violentmonkey.github.io/)、[ScriptCat](https://docs.scriptcat.org/)。
 
 ## 基本特性
 
