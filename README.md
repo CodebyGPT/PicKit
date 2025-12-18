@@ -1,6 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><title xmlns="">touch-triple</title><path fill="currentColor" d="m17.975 3.4l1-1.75q1.175.65 1.85 1.825T21.5 6q0 .675-.175 1.313t-.5 1.187l-1.725-1q.2-.35.3-.712T19.5 6q0-.8-.412-1.5t-1.113-1.1m-4 0l1-1.75q1.175.65 1.85 1.825T17.5 6q0 .675-.175 1.313t-.5 1.187l-1.725-1q.2-.35.3-.712T15.5 6q0-.8-.413-1.5t-1.112-1.1m-3.5 18.6q-.7 0-1.312-.3t-1.038-.85l-5.45-6.925l.475-.5q.5-.525 1.2-.625t1.3.275L7.5 14.2V6q0-.425.288-.712T8.5 5t.725.288t.3.712v5H17q1.25 0 2.125.875T20 14v4q0 1.65-1.175 2.825T16 22zm-6.3-13.5q-.325-.55-.5-1.187T3.5 6q0-2.075 1.463-3.537T8.5 1t3.538 1.463T13.5 6q0 .675-.175 1.313t-.5 1.187l-1.725-1q.2-.35.3-.712T11.5 6q0-1.25-.875-2.125T8.5 3t-2.125.875T5.5 6q0 .425.1.788t.3.712z"/></svg>
 # PickKit（拾字） - 一款面向鼠标用户的效率增强类油猴脚本
 
-【AICG 声明】脚本大部分代码参考或直接使用了 Gemini 3 Pro Preview、ChatGPT、Kimi K2、Qwen3-Max 等 LLM 的输出结果。
+【AICG 警告】
+脚本大部分代码参考或直接使用了 Gemini 3 Pro Preview、ChatGPT、Kimi K2、Qwen3-Max 等 LLM 的输出结果。
+
+【非原创内容声明】
+1. Icon 来自 allsvgicons.com 提供的 material-symbols:touch-triple。
+2. 脚本大部分代码参考或直接使用了 Gemini 3 Pro Preview、ChatGPT、Kimi K2、Qwen3-Max 等 LLM 的输出结果。
+3. 快速粘贴网盘提取码功能参考了 greasyfork.org/zh-CN/scripts/445489-网盘链接识别、greasyfork.org/zh-CN/scripts/439266-网盘有效性检查、github.com/Magiclyan/panAI（forked from syhyz1990/panAI）等脚本。
+4. 中文文本校正功能的部分语法规则参考了 github.com/sparanoid/chinese-copywriting-guidelines 中的内容。
 
 ---
 
@@ -29,9 +37,6 @@
 |🔓 超级取词|按住热键，可以临时移除网页通过 JS 或 CSS 对选中、复制、Ctrl+C 等操作的干扰，使被鼠标点击的密码暂时变成明文，可完整选取被折叠的文本，松开热键一切复原。|2025.12.12（初始版本）功能上线|
 |🔗 拖拽预览|拖拽任意超链接可打开小窗快速预览。|2025.12.12（初始版本）功能上线|
 |🚫 屏蔽网页自带划词条|干掉讨厌的网页自带的划词条。|2025.12.12（初始版本）功能上线|
-
-
-
 
 ### ToDo
 
