@@ -12,7 +12,7 @@
 3. 快速粘贴网盘提取码功能参考了 greasyfork.org/zh-CN/scripts/445489-网盘链接识别、greasyfork.org/zh-CN/scripts/439266-网盘有效性检查、github.com/Magiclyan/panAI（forked from syhyz1990/panAI）等脚本。
 4. 中文文本校正功能的部分语法规则参考了 github.com/sparanoid/chinese-copywriting-guidelines 中的内容。
 
-【社区贡献（主动帮助修复、改进、推广、翻译了本项目的个人或组织）】
+【社区贡献（主动帮助修复、改进、推广、翻译本项目）】
 
 （暂无)
 
