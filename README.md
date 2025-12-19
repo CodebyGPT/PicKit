@@ -62,6 +62,8 @@
 |🧩 Feature|实现大爆炸功能|通过热键（默认 Tab 键）进入，在大爆炸模式下用户可以直接在页面中多选文本，同时创建一个独立的文本中转框用于实时记录|需等待文本中转框功能实现|
 |🧩 Feature|实现划词翻译功能|借助 Google Chrome 在138+ 开始提供的 Translator and Language Detector APIs 实现划词后纯离线零延迟翻译体验。细节：代码和被英文双引号框住的文本不进行翻译|低|
 |🧩 Feature|实现一致性检测功能|默认开启。1、监听到复制事件时将用户当前选中的文本与剪贴板中的数据进行比较，若不一致则通过GM_notification警告用户；2、检测到用户选中的文本包含隐藏的或屏幕外的元素时警告用户；3、在非原创内容声明中增加：参考自github.com/roedesh/copyguard，演示地址：https://codingcheats.io/copy/、https://ruud.je/always-double-check-what-you-copy-from-websites|中|
+|🧩 Feature|光标移至pre:has(code)代码块内时，显示复制全部按钮|默认关闭|中|
+|🧩 Feature|光标移至textarea/input/富文本编辑器内时，显示清空按钮|默认关闭|中|
 |👾 Bug|更换输入框划词-高亮按钮的 SVG 图标|需要更换成“荧光笔笔头”或者“画笔刷“的图案|高|
 |👾 Bug|优化剪切按钮的逻辑|剪切逻辑在某些网页中无法正常删除选中的文字，例如markdown.lovejade.cn|中|
 |🧩 Feature|让 Unlock Mode 能够应对 Shadow-root|以 msn.cn 为例，用户按住超级取词键时可以选中位于 #shadow-root (open) 容器内的文本|低|
