@@ -215,31 +215,48 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 };
                 container.appendChild(atBtn);
             } else {
-                // 2. 检测网址链接
+                // 2. 检测网址链接 (支持多链接)
                 const linkData = extractLinkAndCode(text);
-                if (linkData && linkData.url) {
+                if (linkData && linkData.urls && linkData.urls.length > 0) {
                     const div = document.createElement('div');
                     div.className = isCol ? 'divider divider-h' : 'divider divider-v';
                     container.appendChild(div);
 
+                    const urlCount = linkData.urls.length;
                     const chainBtn = document.createElement('div');
                     chainBtn.className = 'sc-btn';
+                    chainBtn.style.position = 'relative';
                     chainBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
-                    chainBtn.title = t('btn_open_link');
+
+                    // 多链接时追加数量角标
+                    if (urlCount > 1) {
+                        const badge = document.createElement('span');
+                        badge.style.cssText = 'position:absolute;top:-6px;right:-8px;background:#FF4444;color:#fff;font-size:10px;font-weight:bold;border-radius:10px;padding:1px 5px;line-height:1.2;min-width:16px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
+                        badge.textContent = urlCount;
+                        chainBtn.appendChild(badge);
+                    }
+
+                    const titlePrefix = urlCount > 1 ? ('(' + urlCount + ') ') : '';
+                    chainBtn.title = titlePrefix + t('btn_open_link');
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 使用已提取的密码
+                        // 网盘密码交接 (使用第一个URL)
                         const panPassword = linkData.password || null;
-                        if (panPassword && getConfig('enablePaste')) {
+                        if (panPassword && getConfig('enablePaste') && linkData.urls[0]) {
                             await safeSetValue('pan_paste_handover', {
-                                url: linkData.url,
+                                url: linkData.urls[0].url,
                                 code: panPassword,
                                 timestamp: Date.now()
                             });
-                            showToast(`Password: ${panPassword}`);
+                            showToast('Password: ' + panPassword);
                         }
-                        safeOpenTab(linkData.url, { active: true });
+                        // 打开所有链接 (间隔200ms避免弹窗拦截)
+                        linkData.urls.forEach((u, i) => {
+                            setTimeout(() => {
+                                safeOpenTab(u.url, { active: i === 0 });
+                            }, i * 200);
+                        });
                         hideUI();
                     };
                     container.appendChild(chainBtn);

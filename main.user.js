@@ -867,10 +867,112 @@ function scanUrlPath(text, startPos) {
     return urlEnd;
 }
 
-// 查找锚点的正则: 协议 + 域名
-const ANCHOR_PATTERN = /https?:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}/gi;
+// 协议锚点正则
+const PROTO_ANCHOR_PATTERN = /https?:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}/gi;
 
-// [重写] 智能链接与密码提取器 (双重策略)
+// 无协议域名锚点正则 (用于 cloud.189.cn/t/xxx 这种格式)
+const DOMAIN_ANCHOR_PATTERN = /(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}/gi;
+
+// 从文本中提取所有URL
+function extractUrlsFromText(text) {
+    const effectiveTLDs = getEffectiveTLDs();
+    const results = [];
+
+    // 收集所有锚点 (协议 + 无协议)
+    const allAnchors = [];
+
+    // 协议锚点
+    let m;
+    const protoRegex = new RegExp(PROTO_ANCHOR_PATTERN.source, 'gi');
+    while ((m = protoRegex.exec(text)) !== null) {
+        allAnchors.push({
+            start: m.index,
+            end: m.index + m[0].length,
+            hostAndProto: m[0],
+            hasProto: true
+        });
+    }
+
+    // 无协议域名锚点 (仅当协议锚点未覆盖时)
+    const domainRegex = new RegExp(DOMAIN_ANCHOR_PATTERN.source, 'gi');
+    while ((m = domainRegex.exec(text)) !== null) {
+        // 检查这个域名是否已被协议锚点覆盖
+        const isOverlapped = allAnchors.some(a =>
+            m.index >= a.start && m.index < a.end
+        );
+        if (!isOverlapped) {
+            allAnchors.push({
+                start: m.index,
+                end: m.index + m[0].length,
+                hostAndProto: m[0],
+                hasProto: false
+            });
+        }
+    }
+
+    // 按位置排序
+    allAnchors.sort((a, b) => a.start - b.start);
+
+    // 去重：移除被前一个锚点URL范围覆盖的锚点（使用锚点自身结束位置做初步过滤）
+    const deduped = [];
+    for (const anchor of allAnchors) {
+        if (deduped.length === 0 || anchor.start >= deduped[deduped.length - 1].end) {
+            deduped.push(anchor);
+        }
+    }
+
+    // 扫描每个锚点的路径，记录实际URL结束位置用于后续去重
+    let lastUrlEnd = 0;
+    for (const anchor of deduped) {
+        // 跳过已被前一个完整URL覆盖的锚点
+        if (anchor.start < lastUrlEnd) continue;
+        const host = anchor.hostAndProto.replace(/^https?:\/\//, '').split('/')[0];
+        const tld = host.split('.').pop().toLowerCase();
+        if (!effectiveTLDs.has(tld)) continue;
+        if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.)/.test(host)) continue;
+
+        const pathEnd = scanUrlPath(text, anchor.end);
+        let url = text.substring(anchor.start, pathEnd);
+        url = url.replace(/[\u4e00-\u9fa5]+/g, '');
+        url = trimUrlTail(url);
+
+        // 验证：URL至少要有域名之后的路径部分
+        if (!anchor.hasProto) {
+            const urlHost = url.split('/')[0];
+            // 协议后的URL至少包含一个/路径，或?参数
+            if (url === urlHost || url.length <= urlHost.length) {
+                // 没有路径，检查是否有?参数
+                const questionIdx = text.indexOf('?', anchor.end);
+                if (questionIdx !== -1 && questionIdx < anchor.end + 50) {
+                    // 可能后面有参数，但扫描没抓到。保守跳过。
+                }
+                // 纯域名不做为链接 (如 "cloud.189.cn" alone)
+                if (!/[\/?#]/.test(url)) continue;
+            }
+        }
+
+        const finalHost = url.replace(/^https?:\/\//, '').split('/')[0];
+        const finalTld = finalHost.split('.').pop().toLowerCase();
+        if (!effectiveTLDs.has(finalTld)) continue;
+
+        const fullUrl = url.startsWith('http') ? url : 'http://' + url;
+        const displayUrl = anchor.hasProto ? url : url; // display shows with http:// added
+
+        results.push({
+            display: fullUrl.replace(/^https?:\/\//, '') === url.replace(/^https?:\/\//, '')
+                ? url : fullUrl,
+            url: fullUrl,
+            host: finalHost
+        });
+
+        // 标记已覆盖范围，用于后续锚点去重
+        lastUrlEnd = pathEnd;
+    }
+
+    return results;
+}
+
+// [重写] 智能链接与密码提取器 (支持多链接)
 function extractLinkAndCode(rawText) {
     if (!rawText) return null;
 
@@ -879,6 +981,7 @@ function extractLinkAndCode(rawText) {
     const codePatterns = [
         /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)\s*[:：\s]+\s*([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
         /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)[:：]([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
+        /码\s*[:：\s]*([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
         /\([:：\s]*([a-zA-Z0-9]{4,8})\s*\)/,
     ];
     for (const pat of codePatterns) {
@@ -886,60 +989,22 @@ function extractLinkAndCode(rawText) {
         if (m) { password = m[1]; break; }
     }
 
-    // ---- 阶段2: 查找锚点 + 扫描路径 ----
-    const effectiveTLDs = getEffectiveTLDs();
+    // ---- 阶段2: 提取URL (双重策略) ----
+    // 策略A: 在原文中搜索 (适用中文注释在URL后方)
+    let urls = extractUrlsFromText(rawText);
 
-    // 策略A: 在原始文本中搜索 (适用中文注释在URL后方)
-    const getUrlFromText = (text) => {
-        const anchors = [];
-        let m;
-        const regex = new RegExp(ANCHOR_PATTERN.source, 'gi');
-        while ((m = regex.exec(text)) !== null) {
-            anchors.push({ start: m.index, end: m.index + m[0].length, hostAndProto: m[0] });
-        }
-        if (anchors.length === 0) return null;
-
-        let bestResult = null;
-
-        for (const anchor of anchors) {
-            const host = anchor.hostAndProto.replace(/^https?:\/\//, '').split('/')[0];
-            const tld = host.split('.').pop().toLowerCase();
-            if (!effectiveTLDs.has(tld)) continue;
-            if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.)/.test(host)) continue;
-
-            const pathEnd = scanUrlPath(text, anchor.end);
-            let url = text.substring(anchor.start, pathEnd);
-            url = url.replace(/[\u4e00-\u9fa5]+/g, '');
-            url = trimUrlTail(url);
-
-            const finalHost = url.replace(/^https?:\/\//, '').split('/')[0];
-            const finalTld = finalHost.split('.').pop().toLowerCase();
-            if (!effectiveTLDs.has(finalTld)) continue;
-
-            const fullUrl = url.startsWith('http') ? url : 'http://' + url;
-            bestResult = { display: url, url: fullUrl, host: finalHost };
-        }
-
-        return bestResult;
-    };
-
-    // 先尝试原文提取 (应对"中文注释"场景)
-    let bestResult = getUrlFromText(rawText);
-
-    // 如果原文找不到锚点，尝试清洗后提取 (应对"中文嵌入URL"场景)
-    if (!bestResult) {
+    // 策略B: 如果原文找不到锚点，在清洗后文本中搜索 (适用中文嵌入URL内部)
+    if (urls.length === 0) {
         const cleanText = rawText
             .replace(/[\u4e00-\u9fa5]+/g, '')
             .replace(/\s+/g, '');
-        bestResult = getUrlFromText(cleanText);
+        urls = extractUrlsFromText(cleanText);
     }
 
-    if (!bestResult && !password) return null;
-    if (!bestResult) return { password };
+    if (urls.length === 0 && !password) return null;
+
     return {
-        display: bestResult.display,
-        url: bestResult.url,
-        host: bestResult.host,
+        urls: urls,
         password: password
     };
 }
@@ -2026,31 +2091,48 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 };
                 container.appendChild(atBtn);
             } else {
-                // 2. 检测网址链接
+                // 2. 检测网址链接 (支持多链接)
                 const linkData = extractLinkAndCode(text);
-                if (linkData && linkData.url) {
+                if (linkData && linkData.urls && linkData.urls.length > 0) {
                     const div = document.createElement('div');
                     div.className = isCol ? 'divider divider-h' : 'divider divider-v';
                     container.appendChild(div);
 
+                    const urlCount = linkData.urls.length;
                     const chainBtn = document.createElement('div');
                     chainBtn.className = 'sc-btn';
+                    chainBtn.style.position = 'relative';
                     chainBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
-                    chainBtn.title = t('btn_open_link');
+
+                    // 多链接时追加数量角标
+                    if (urlCount > 1) {
+                        const badge = document.createElement('span');
+                        badge.style.cssText = 'position:absolute;top:-6px;right:-8px;background:#FF4444;color:#fff;font-size:10px;font-weight:bold;border-radius:10px;padding:1px 5px;line-height:1.2;min-width:16px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
+                        badge.textContent = urlCount;
+                        chainBtn.appendChild(badge);
+                    }
+
+                    const titlePrefix = urlCount > 1 ? ('(' + urlCount + ') ') : '';
+                    chainBtn.title = titlePrefix + t('btn_open_link');
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 使用已提取的密码
+                        // 网盘密码交接 (使用第一个URL)
                         const panPassword = linkData.password || null;
-                        if (panPassword && getConfig('enablePaste')) {
+                        if (panPassword && getConfig('enablePaste') && linkData.urls[0]) {
                             await safeSetValue('pan_paste_handover', {
-                                url: linkData.url,
+                                url: linkData.urls[0].url,
                                 code: panPassword,
                                 timestamp: Date.now()
                             });
-                            showToast(`Password: ${panPassword}`);
+                            showToast('Password: ' + panPassword);
                         }
-                        safeOpenTab(linkData.url, { active: true });
+                        // 打开所有链接 (间隔200ms避免弹窗拦截)
+                        linkData.urls.forEach((u, i) => {
+                            setTimeout(() => {
+                                safeOpenTab(u.url, { active: i === 0 });
+                            }, i * 200);
+                        });
                         hideUI();
                     };
                     container.appendChild(chainBtn);

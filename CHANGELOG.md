@@ -37,3 +37,19 @@
 - Case 1: `【天翼云盘：https://cloud.189.cn/t/3yqYreieuUFv(访问码:cpn0) 】` → URL正确提取为 `https://cloud.189.cn/t/3yqYreieuUFv`，密码 `cpn0`
 - Case 2: `5日iPhone 历代壁纸https://www.aliyundrive.com/s/rxUp6HNpwP8点击链接...` → URL正确提取为 `https://www.aliyundrive.com/s/rxUp6HNpwP8`
 - Case 3: `htt删p:/去/pan这.bai几du.co个m/s/hff字H57gb?...（提取码:5u8m）` → URL提取为 `http://pan.baidu.com/s/hffH57gb?=yhgfdxcc54`，密码 `5u8m`
+
+## 2026.06.18 - 无协议URL + 多链接 + 密码提取增强
+
+### 新增功能
+- **多链接检测与批量打开**：选中包含多个网址的文本时，显示链接数角标，点击一次打开全部链接（200ms间隔避免弹窗拦截）
+- **无协议URL检测**：支持 `cloud.189.cn/t/xxx` 这种无 `http://` 前缀的域名格式URL自动识别
+
+### 修复
+- **`码` 关键字密码提取**：新增 `/码\s*[:：\s]*([a-zA-Z0-9]{4,8})/` 模式，支持 `码 7515` 这种简写格式
+- **多锚点去重优化**：使用实际URL扫描结束位置进行锚点去重，避免多URL被错误合并
+
+### 技术细节
+- `extractLinkAndCode()` 返回类型改为 `{ urls: [...], password }` 支持多URL
+- 新增 `extractUrlsFromText()` 函数统一处理协议锚点和域名锚点
+- 链接按钮在多链接时显示红色数量角标（如 "x3"）
+- 新增 `DOMAIN_ANCHOR_PATTERN` 正则匹配无协议域名
