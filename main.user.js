@@ -76,6 +76,7 @@ const DEFAULT_CONFIG = {
     smartEngine: false,        // 是否启用智能分配
     fallbackEngine: 'bing',   // 不含中文时的备用引擎
     enableDeleteBtn: true, // 是否显示删除按钮
+    customTLDs: [], // 用户自定义的顶级域名列表
 };
 
 const SCROLL_REPAINT_MODE = {
@@ -93,15 +94,29 @@ const SEARCH_ENGINES = {
     brave: { name: 'Brave', url: 'https://search.brave.com/search?q=%s' },
 };
 
+// [新增] 顶级域名白名单 (Top 100 TLDs)
+const TLD_SET = new Set([
+    'com', 'cn', 'de', 'tk', 'uk', 'net', 'org', 'top', 'ru',
+    'info', 'br', 'xyz', 'ga', 'nl', 'it', 'ws', 'ml', 'shop',
+    'cf', 'fr', 'co', 'eu', 'in', 'online', 'au', 'gq', 'ph',
+    'us', 'ca', 'vip', 'club', 'pl', 'cc', 'biz', 'store', 'za',
+    'site', 'ch', 'se', 'es', 'tw', 'loan', 'jp', 'me', 'be',
+    'live', 'buzz', 'at', 'ir', 'work', 'app', 'sbs', 'cz', 'pro',
+    'click', 'id', 'dk', 'io', 'mx', 'bond', 'kr', 'wang', 'lol',
+    'no', 'tr', 'cfd', 'nu', 'hu', 'life', 'ai', 'asia', 'my',
+    'cl', 'ua', 'ro', 'icu', 'cloud', 'win', 'link', 'ar', 'nz',
+    'vn', 'ltd', 'world', 'dev', 'fun', 'mobi', 'space', 'tv',
+    'cyou', 'fi', 'tech', 'sk', 'today', 'gr', 'one', 'digital',
+    'gov', 'edu'
+]);
+const TLD_SET_EXTENDED = new Set(TLD_SET); // 可扩展副本，用于合并自定义TLD
+
 // [新增] 网盘域名匹配规则 (用于闪电粘贴密码提取)
 const PAN_DOMAINS = [
     'pan.baidu.com', 'lanzou', 'weiyun.com', 'cloud.189.cn',
     'aliyundrive.com', 'alipan.com', '123pan.com', 'pan.quark.cn',
     'pan.xunlei.com', '115.com', 'drive.uc.cn', 'fast.uc.cn', 'ctfile.com'
 ];
-// [新增] 网盘密码提取正则
-const PAN_CODE_REGEX = /(?:提取码|密码|访问码|分享码|口令)\s*[:：]?\s*([a-zA-Z0-9]{4})(?![a-zA-Z0-9])/;
-
 // [新增] 仅在当前Tab有效的网盘密码缓存（用于新标签页接收）
 let sessionPanCode = null;
 
@@ -182,7 +197,13 @@ const I18N = {
         festival_cny: '🏮已复制🏮',
         festival_xmas: '🎄已复制🎄',
         btn_open_link: '打开链接',
+        btn_email: '@ 复制邮箱',
+        toast_email_copied: '邮箱地址已复制',
         toast_password_pasted: '已粘贴提取码',
+        menu_tld_add: '➕ 添加自定义顶级域名',
+        prompt_tld_add: '请输入要添加的顶级域名 (如 xyz 或 .xyz):',
+        toast_tld_added: '已添加域名: %s',
+        err_tld_invalid: '无效的域名格式。请输入如 xyz 或 .xyz',
         menu_drag_preview: '🔗 拖拽预览',
         btn_cut: '剪切',
         menu_edit: '✏️ 编辑网页',
@@ -254,7 +275,13 @@ const I18N = {
         festival_cny: '🏮 Copied 🏮',
         festival_xmas: '🎄 Copied 🎄',
         btn_open_link: 'Open Link',
+        btn_email: '@ Copy Email',
+        toast_email_copied: 'Email Copied',
         toast_password_pasted: 'Code Pasted',
+        menu_tld_add: '➕ Add Custom TLD',
+        prompt_tld_add: 'Enter TLD to add (e.g. xyz or .xyz):',
+        toast_tld_added: 'TLD added: %s',
+        err_tld_invalid: 'Invalid TLD format. Use e.g. xyz or .xyz',
         menu_drag_preview: '🔗 Drag Link Preview',
         btn_cut: 'Cut',
         menu_edit: '✏️ Edit Page',
@@ -326,7 +353,13 @@ const I18N = {
         festival_cny: '🏮 Скопировано 🏮',
         festival_xmas: '🎄 Скопировано 🎄',
         btn_open_link: 'Открыть ссылку',
+        btn_email: '@ Копировать Email',
+        toast_email_copied: 'Email скопирован',
         toast_password_pasted: 'Код вставлен',
+        menu_tld_add: '➕ Добавить свой TLD',
+        prompt_tld_add: 'Введите TLD (например xyz или .xyz):',
+        toast_tld_added: 'TLD добавлен: %s',
+        err_tld_invalid: 'Неверный формат TLD. Используйте напр. xyz или .xyz',
         menu_drag_preview: '🔗 Предпросмотр ссылки',
         btn_cut: 'Вырезать',
         menu_edit: '✏️ Редактировать',
@@ -535,6 +568,12 @@ async function initConfiguration() {
     // 额外加载屏蔽规则 (blocked_elements)
     const blockedRules = await safeGetValue('blocked_elements', {});
     configCache['blocked_elements'] = blockedRules;
+
+    // 加载自定义TLD并合并到扩展集合
+    const customTLDs = configCache['customTLDs'] || [];
+    if (customTLDs.length > 0) {
+        customTLDs.forEach(t => TLD_SET_EXTENDED.add(t.toLowerCase().replace(/^\./, '')));
+    }
 }
 
 // 首次运行时根据时区自动设置搜索引擎
@@ -721,6 +760,27 @@ function registerMenus() {
         }
     });
 
+    // 新增：添加自定义顶级域名
+    GM_registerMenuCommand(t('menu_tld_add'), () => {
+        const val = prompt(t('prompt_tld_add'));
+        if (!val) return;
+        let tld = val.trim().toLowerCase().replace(/^\./, ''); // 移除前导点
+        // 验证：只允许字母和点
+        if (!/^[a-z]{2,}$/.test(tld)) {
+            alert(t('err_tld_invalid'));
+            return;
+        }
+        const current = getConfig('customTLDs') || [];
+        if (current.includes(tld)) {
+            showToast('TLD already exists: ' + tld);
+            return;
+        }
+        current.push(tld);
+        setConfig('customTLDs', current);
+        TLD_SET_EXTENDED.add(tld);
+        showToast(t('toast_tld_added', tld));
+    });
+
     // 新增：编辑网页
     GM_registerMenuCommand(t('menu_edit'), () => {
         toggleEditMode(!isEditMode);
@@ -738,53 +798,85 @@ function registerMenus() {
 
 // 模块 06: 链接与密码提取器 (Link & Password Extractors)
 
-// [新增] 智能链接提取器
-function extractLinkFromText(rawText) {
-    // 1. 快速预筛选 (性能优化)
-    if (!rawText || (!rawText.includes('.') && !rawText.includes('://'))) return null;
-
-    // 2. 清洗中文混淆 (处理 "pa删n.baid中u.co文m" 这种情况)
-    // 仅移除中文字符，保留其他所有字符以便正则匹配
-    const cleanText = rawText.replace(/[\u4e00-\u9fa5]/g, '');
-
-    // 3. 正则提取
-    // 匹配协议头(可选) + 域名/IP + 路径/参数
-    // 排除末尾的标点符号： ) ] 】 ） 以及常见的句号逗号
-    const urlPattern = /((?:https?:\/\/)?(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d{1,5})?(?:\/[^\s\u4e00-\u9fa5)\]】）]*)?)/gi;
-
-    const matches = cleanText.match(urlPattern);
-
-    // 4. 必须有且仅有一个完整的链接
-    if (!matches || matches.length !== 1) return null;
-
-    let url = matches[0];
-
-    // 5. 特殊清洗：如果URL末尾包含了非URL字符（如被正则误吸入的符号），做Trim
-    url = url.replace(/[.,;:]+$/, '');
-
-    // 6. 域名/IP 规则校验
-    let host = url.replace(/^https?:\/\//, '').split('/')[0];
-
-    // 6.1 排除以纯IP 10. 或 172. 开头的
-    if (/^10\./.test(host) || /^172\./.test(host)) return null;
-
-    // 6.2 必须包含顶级域名分隔符 '.'
-    if (!host.includes('.')) return null;
-
-    // 7. 补全协议 (用于 safeOpenTab)
-    let fullUrl = url;
-    if (!url.startsWith('http')) {
-        fullUrl = 'http://' + url;
-    }
-
-    return { display: url, url: fullUrl, host: host };
+// 获取合并后的完整TLD集合 (内置 + 用户自定义)
+function getEffectiveTLDs() {
+    const custom = getConfig('customTLDs') || [];
+    if (custom.length === 0) return TLD_SET_EXTENDED;
+    const merged = new Set(TLD_SET_EXTENDED);
+    custom.forEach(t => merged.add(t.toLowerCase().replace(/^\./, '')));
+    return merged;
 }
 
-// [新增] 网盘密码提取器
-function extractPanCode(text) {
-    if (!getConfig('enablePaste')) return null;
-    const match = text.match(PAN_CODE_REGEX);
-    return match ? match[1] : null;
+// [重写] 智能链接与密码提取器 (统一入口)
+function extractLinkAndCode(rawText) {
+    if (!rawText) return null;
+
+    // ---- 阶段1: 提取密码/提取码 ----
+    let password = null;
+    // 匹配: (提取码|密码|访问码|分享码|口令|code|pwd|key|pw)[:：\s]*([a-zA-Z0-9]{4,8})
+    // 允许关键字和密码之间有中文或符号干扰
+    const codePatterns = [
+        /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)\s*[:：]?\s*([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
+        /\([:：]?\s*([a-zA-Z0-9]{4,8})\s*\)/,  // 括号中的纯码: (:cpn0) 或 (cpn0)
+    ];
+    for (const pat of codePatterns) {
+        const m = rawText.match(pat);
+        if (m) { password = m[1]; break; }
+    }
+
+    // ---- 阶段2: 提取URL ----
+    // 移除中文字符和常见干扰词，保留URL结构
+    let cleanText = rawText
+        .replace(/[\u4e00-\u9fa5]+/g, '')         // 移除所有中文
+        .replace(/\s+/g, '');                      // 移除空白
+
+    if (!cleanText) return password ? { password } : null;
+
+    // URL正则：协议(可选) + 域名 + 路径/参数
+    const urlPattern = /((?:https?:\/\/)?(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d{1,5})?(?:\/[^\s\u4e00-\u9fa5\]】）)]*)?)/gi;
+    const matches = cleanText.match(urlPattern);
+
+    if (!matches || matches.length === 0) return password ? { password } : null;
+
+    // 取最后一个有效URL (通常是最完整的)
+    let bestUrl = null;
+    let bestHost = null;
+    const effectiveTLDs = getEffectiveTLDs();
+
+    for (const candidate of matches) {
+        let url = candidate.replace(/[.,;:!?，。；：！？、)]+$/, ''); // trim trailing punctuation
+        let host = url.replace(/^https?:\/\//, '').split('/')[0];
+
+        // 排除内网IP
+        if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.)/.test(host)) continue;
+        if (!host.includes('.')) continue;
+
+        // TLD验证
+        const tld = host.split('.').pop().toLowerCase();
+        if (!effectiveTLDs.has(tld)) continue;
+
+        // 补全协议
+        let fullUrl = url.startsWith('http') ? url : 'http://' + url;
+        bestUrl = { display: url, url: fullUrl, host: host };
+        bestHost = host;
+    }
+
+    if (!bestUrl) return password ? { password } : null;
+
+    return {
+        display: bestUrl.display,
+        url: bestUrl.url,
+        host: bestUrl.host,
+        password: password
+    };
+}
+
+// [新增] 邮箱地址提取器
+function extractEmailFromText(rawText) {
+    if (!rawText || !rawText.includes('@')) return null;
+    const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
+    const m = rawText.match(emailPattern);
+    return m ? m[1] : null;
 }
 
 // 模块 07: 选区定位计算器 (Selection Geometry Calculator)
@@ -1826,7 +1918,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(searchBtn);
         }
 
-        // 锁链按钮逻辑
+        // @按钮 / 锁链按钮逻辑
         const activeEl = document.activeElement;
         const isUserEditing = activeEl && (
             (['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && !activeEl.readOnly) ||
@@ -1834,38 +1926,62 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             document.designMode === 'on'
         );
         if (!isUserEditing && !targetInput && mode !== PASTE_MODE_THREE_BTNS) {
-            const linkData = extractLinkFromText(text);
-            if (linkData) {
+            // 1. 先检测邮箱地址 (优先级高于链接)
+            const emailAddr = extractEmailFromText(text);
+            if (emailAddr) {
                 const div = document.createElement('div');
                 div.className = isCol ? 'divider divider-h' : 'divider divider-v';
                 container.appendChild(div);
 
-                const chainBtn = document.createElement('div');
-                chainBtn.className = 'sc-btn';
-                chainBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
-                chainBtn.title = t('btn_open_link');
-                chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
-                chainBtn.onclick = async (e) => {
+                const atBtn = document.createElement('div');
+                atBtn.className = 'sc-btn';
+                atBtn.innerHTML = `<svg viewBox="0 0 48 48" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44V44C28.9886 44 33.5507 42.1735 37.0539 39.1529" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M24 32C28.4183 32 32 28.4183 32 24C32 19.5817 28.4183 16 24 16C19.5817 16 16 19.5817 16 24C16 28.4183 19.5817 32 24 32Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="miter"/><path d="M32 24C32 27.3137 34.6863 30 38 30V30C41.3137 30 44 27.3137 44 24" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M32 25V16" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter"/></svg>`;
+                atBtn.title = t('btn_email');
+                atBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
+                atBtn.onclick = async (e) => {
                     e.stopPropagation();
-                    let panPassword = null;
-                    if (getConfig('enablePaste')) {
-                        const isPan = PAN_DOMAINS.some(d => linkData.host.includes(d));
-                        if (isPan) {
-                            panPassword = extractPanCode(text);
+                    // 复制完整邮箱到剪贴板
+                    try {
+                        await navigator.clipboard.writeText(emailAddr);
+                    } catch (_) {
+                        if (typeof GM_setClipboard === 'function') {
+                            GM_setClipboard(emailAddr, 'text');
                         }
                     }
-                    if (panPassword) {
-                        await safeSetValue('pan_paste_handover', {
-                            url: linkData.url,
-                            code: panPassword,
-                            timestamp: Date.now()
-                        });
-                        showToast(`Password: ${panPassword}`);
-                    }
-                    safeOpenTab(linkData.url, { active: true });
+                    showToast(t('toast_email_copied'));
                     hideUI();
                 };
-                container.appendChild(chainBtn);
+                container.appendChild(atBtn);
+            } else {
+                // 2. 检测网址链接
+                const linkData = extractLinkAndCode(text);
+                if (linkData && linkData.url) {
+                    const div = document.createElement('div');
+                    div.className = isCol ? 'divider divider-h' : 'divider divider-v';
+                    container.appendChild(div);
+
+                    const chainBtn = document.createElement('div');
+                    chainBtn.className = 'sc-btn';
+                    chainBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
+                    chainBtn.title = t('btn_open_link');
+                    chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
+                    chainBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        // 使用已提取的密码
+                        const panPassword = linkData.password || null;
+                        if (panPassword && getConfig('enablePaste')) {
+                            await safeSetValue('pan_paste_handover', {
+                                url: linkData.url,
+                                code: panPassword,
+                                timestamp: Date.now()
+                            });
+                            showToast(`Password: ${panPassword}`);
+                        }
+                        safeOpenTab(linkData.url, { active: true });
+                        hideUI();
+                    };
+                    container.appendChild(chainBtn);
+                }
             }
         }
 
