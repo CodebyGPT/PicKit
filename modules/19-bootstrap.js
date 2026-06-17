@@ -71,29 +71,23 @@
             }
 
             // 9. 检查是否有来自网盘链接的密码交接
-            // 9. 检查网盘密码映射 (按URL前缀匹配消费；过期清理由cleanExpiredPanEntries在读写时顺带完成)
+            // 9. 检查网盘密码映射 (URL标识符精确匹配，O(1)查找，无交叉污染)
             const checkPanCodeMap = async () => {
                 if (!getConfig('enablePaste')) return;
 
                 const map = cleanExpiredPanEntries(await safeGetValue('pan_code_map', {}));
                 if (Object.keys(map).length === 0) return;
 
-                const currentUrl = window.location.href;
-                let consumed = false;
+                const currentId = extractPanUrlId(window.location.href);
+                if (!currentId) return;
 
-                for (const storedUrl of Object.keys(map)) {
-                    if (currentUrl.includes(storedUrl.replace(/^https?:\/\//, '').split('/')[0])) {
-                        sessionPanCode = map[storedUrl].code;
-                        delete map[storedUrl];
-                        consumed = true;
-                        if (getConfig('enableToast')) {
-                            showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
-                        }
-                        break;
+                const entry = map[currentId];
+                if (entry) {
+                    sessionPanCode = entry.code;
+                    delete map[currentId];
+                    if (getConfig('enableToast')) {
+                        showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
                     }
-                }
-
-                if (consumed) {
                     await safeSetValue('pan_code_map', map);
                 }
             };

@@ -241,15 +241,18 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 构建每URL独立的密码映射 (以完整URL为key，避免同域名覆盖)
+                        // 构建每URL独立的密码映射 (以URL标识符为key，跨重定向匹配)
                         // 写入时顺带清理过期条目 (事件驱动，无轮询)
                         if (getConfig('enablePaste')) {
                             const map = cleanExpiredPanEntries(await safeGetValue('pan_code_map', {}));
                             let savedCount = 0;
                             linkData.urls.forEach((u) => {
                                 if (u.code) {
-                                    map[u.url] = { code: u.code, ts: Date.now() };
-                                    savedCount++;
+                                    const urlId = extractPanUrlId(u.url);
+                                    if (urlId) {
+                                        map[urlId] = { code: u.code, ts: Date.now(), fullUrl: u.url };
+                                        savedCount++;
+                                    }
                                 }
                             });
                             if (savedCount > 0) {

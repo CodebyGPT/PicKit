@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.06.18 — URL标识符精确匹配 + 锚点定位修复
+
+### 修复
+- **密码分配改用锚点位置**：`extractLinkAndCode()` 不再用 `indexOf(host)` 重搜，改用 `extractUrlsFromText()` 已计算的 `anchorStart` 原文位置，消除同域名 URL 位置偏移
+- **消费匹配改用 URL 标识符**：新增 `extractPanUrlId()` 函数，从每种网盘 URL 提取唯一标识符（百度 `/s/XXXXX`、天翼 `/t/XXXXX`、阿里 `/s/XXXXX` 等），消费时 O(1) 精确查找，消除同域名交叉污染
+- **跨重定向匹配**：`/s/XXXXX` 和 `/share/init?surl=XXXXX` 提取相同标识符，适应百度等网盘的 URL 跳转
+
+### 技术细节
+- `pan_code_map` key 从完整 URL 改为 `extractPanUrlId()` 标识符
+- `extractUrlsFromText()` 返回对象新增 `anchorStart` 字段
+- `checkPanCodeMap` 从 O(n) 遍历 + 域名子串匹配改为 O(1) 标识符直接查找
+- 支持 lanzou、123pan、quark 等通用回退
+
 ## 2026.06.18 - 批量多链接独立密码缓存
 
 ### 新增功能

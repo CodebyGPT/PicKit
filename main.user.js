@@ -811,6 +811,65 @@ function registerMenus() {
 
 // 模块 06: 链接与密码提取器 (Link & Password Extractors)
 
+// 从网盘链接中提取唯一标识符，用于跨标签页精确匹配
+// 返回 null 表示无法提取（不影响普通链接的正常使用）
+function extractPanUrlId(url) {
+    try {
+        const u = new URL(url);
+        const host = u.hostname;
+        const path = u.pathname;
+
+        // pan.baidu.com: /s/XXXXX 或 surl=XXXXX
+        if (host.includes('baidu.com')) {
+            const sMatch = path.match(/\/s\/([a-zA-Z0-9_-]+)/);
+            if (sMatch) return sMatch[1];
+            const surl = u.searchParams.get('surl');
+            if (surl) return surl;
+        }
+
+        // cloud.189.cn: /t/XXXXX 或 code=XXXXX
+        if (host === 'cloud.189.cn') {
+            const tMatch = path.match(/\/t\/([a-zA-Z0-9]+)/);
+            if (tMatch) return tMatch[1];
+            const code = u.searchParams.get('code');
+            if (code) return code;
+        }
+
+        // aliyundrive.com / alipan.com: /s/XXXXX
+        if (host.includes('aliyundrive.com') || host.includes('alipan.com')) {
+            const sMatch = path.match(/\/s\/([a-zA-Z0-9]+)/);
+            if (sMatch) return sMatch[1];
+        }
+
+        // 123pan.com: /s/XXXXX
+        if (host.includes('123pan.com')) {
+            const sMatch = path.match(/\/s\/([a-zA-Z0-9]+)/);
+            if (sMatch) return sMatch[1];
+        }
+
+        // pan.quark.cn: /s/XXXXX
+        if (host.includes('quark.cn')) {
+            const sMatch = path.match(/\/s\/([a-zA-Z0-9]+)/);
+            if (sMatch) return sMatch[1];
+        }
+
+        // lanzou*: 最后路径段
+        if (host.includes('lanzou')) {
+            const segments = path.split('/').filter(Boolean);
+            if (segments.length > 0) return segments[segments.length - 1];
+        }
+
+        // 通用回退: hostname + 末段路径
+        const segments = path.split('/').filter(Boolean);
+        const last = segments.length > 0 ? segments[segments.length - 1] : '';
+        if (last && last.length >= 2) return host + '/' + last;
+
+        return null;
+    } catch (_) {
+        return null;
+    }
+}
+
 // 获取合并后的完整TLD集合 (内置 + 用户自定义)
 function getEffectiveTLDs() {
     const custom = getConfig('customTLDs') || [];
@@ -974,7 +1033,8 @@ function extractUrlsFromText(text) {
             display: fullUrl.replace(/^https?:\/\//, '') === url.replace(/^https?:\/\//, '')
                 ? url : fullUrl,
             url: fullUrl,
-            host: finalHost
+            host: finalHost,
+            anchorStart: anchor.start  // 保留锚点在原文中的位置，用于密码分配
         });
 
         // 标记已覆盖范围，用于后续锚点去重
@@ -1028,21 +1088,15 @@ function extractLinkAndCode(rawText) {
 
     if (urls.length === 0 && !password) return null;
 
-    // ---- 阶段3: 为每个URL分配最近的密码 ----
-    let searchFrom = 0;
+    // ---- 阶段3: 为每个URL分配最近的密码（直接用锚点位置，不重搜 host）----
     for (let i = 0; i < urls.length; i++) {
-        const u = urls[i];
-        // 从上一URL之后搜索当前URL的主机名位置
-        const urlIdx = rawText.indexOf(u.host, searchFrom);
-        if (urlIdx === -1) continue;
-        searchFrom = urlIdx + 1;
-
-        const nextUrlIdx = i + 1 < urls.length
-            ? rawText.indexOf(urls[i + 1].host, searchFrom)
+        const urlStart = urls[i].anchorStart;
+        if (urlStart === undefined) continue;
+        // 该URL在原文中的范围：[urlStart, nextUrlStart)
+        const nextUrlStart = (i + 1 < urls.length && urls[i + 1].anchorStart !== undefined)
+            ? urls[i + 1].anchorStart
             : rawText.length;
-
-        // 查找位于此URL之后、下一URL之前的密码
-        const matched = allCodes.filter(c => c.index > urlIdx && c.index < nextUrlIdx);
+        const matched = allCodes.filter(c => c.index >= urlStart && c.index < nextUrlStart);
         if (matched.length > 0) {
             urls[i].code = matched[0].code;
         }
@@ -2162,15 +2216,18 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 构建每URL独立的密码映射 (以完整URL为key，避免同域名覆盖)
+                        // 构建每URL独立的密码映射 (以URL标识符为key，跨重定向匹配)
                         // 写入时顺带清理过期条目 (事件驱动，无轮询)
                         if (getConfig('enablePaste')) {
                             const map = cleanExpiredPanEntries(await safeGetValue('pan_code_map', {}));
                             let savedCount = 0;
                             linkData.urls.forEach((u) => {
                                 if (u.code) {
-                                    map[u.url] = { code: u.code, ts: Date.now() };
-                                    savedCount++;
+                                    const urlId = extractPanUrlId(u.url);
+                                    if (urlId) {
+                                        map[urlId] = { code: u.code, ts: Date.now(), fullUrl: u.url };
+                                        savedCount++;
+                                    }
                                 }
                             });
                             if (savedCount > 0) {
@@ -3195,29 +3252,23 @@ async function restoreInputData() {
             }
 
             // 9. 检查是否有来自网盘链接的密码交接
-            // 9. 检查网盘密码映射 (按URL前缀匹配消费；过期清理由cleanExpiredPanEntries在读写时顺带完成)
+            // 9. 检查网盘密码映射 (URL标识符精确匹配，O(1)查找，无交叉污染)
             const checkPanCodeMap = async () => {
                 if (!getConfig('enablePaste')) return;
 
                 const map = cleanExpiredPanEntries(await safeGetValue('pan_code_map', {}));
                 if (Object.keys(map).length === 0) return;
 
-                const currentUrl = window.location.href;
-                let consumed = false;
+                const currentId = extractPanUrlId(window.location.href);
+                if (!currentId) return;
 
-                for (const storedUrl of Object.keys(map)) {
-                    if (currentUrl.includes(storedUrl.replace(/^https?:\/\//, '').split('/')[0])) {
-                        sessionPanCode = map[storedUrl].code;
-                        delete map[storedUrl];
-                        consumed = true;
-                        if (getConfig('enableToast')) {
-                            showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
-                        }
-                        break;
+                const entry = map[currentId];
+                if (entry) {
+                    sessionPanCode = entry.code;
+                    delete map[currentId];
+                    if (getConfig('enableToast')) {
+                        showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
                     }
-                }
-
-                if (consumed) {
                     await safeSetValue('pan_code_map', map);
                 }
             };

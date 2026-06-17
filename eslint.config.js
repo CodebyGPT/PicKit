@@ -43,6 +43,7 @@ const crossModuleGlobals = {
   extractLinkAndCode: "readonly",
   extractEmailFromText: "readonly",
   getEffectiveTLDs: "readonly",
+  extractPanUrlId: "readonly",
   // 07-selection.js
   getAnchorPosition: "readonly",
   getSelectionCoords: "readonly",
