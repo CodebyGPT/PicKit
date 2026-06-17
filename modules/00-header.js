@@ -4,7 +4,7 @@
 // @name:ru            Панель_выбора_текста
 // @name:zh-CN         划词工具栏
 // @namespace          https://github.com/CodebyGPT/Text_Selection_Toolbar
-// @version            2026.03.05
+// @version            2026.06.17
 // @description        Add a text selection toolbar to your browser.-为你的浏览器增加一个划词工具栏。
 // @description:en     Add a text selection toolbar to your browser.
 // @description:ru     Добавьте панель инструментов для выделения текста в ваш браузер.
