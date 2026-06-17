@@ -63,6 +63,18 @@ const PAN_DOMAINS = [
 // [新增] 仅在当前Tab有效的网盘密码缓存（用于新标签页接收）
 let sessionPanCode = null;
 
+// 网盘密码映射过期清理 (事件驱动：在读写pan_code_map时顺带调用)
+const PAN_CODE_MAX_AGE = 3600000; // 1小时
+function cleanExpiredPanEntries(map) {
+    const now = Date.now();
+    for (const key of Object.keys(map)) {
+        if (now - map[key].ts > PAN_CODE_MAX_AGE) {
+            delete map[key];
+        }
+    }
+    return map;
+}
+
 // 运行时状态
 let cachedSelection = { text: '', html: '' };
 let uiTimer = null;

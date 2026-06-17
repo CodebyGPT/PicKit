@@ -15,6 +15,8 @@ const crossModuleGlobals = {
   TLD_SET: "readonly",
   TLD_SET_EXTENDED: "readonly",
   sessionPanCode: "writable",
+  PAN_CODE_MAX_AGE: "readonly",
+  cleanExpiredPanEntries: "readonly",
   cachedSelection: "writable",
   uiTimer: "writable",
   toastTimer: "writable",

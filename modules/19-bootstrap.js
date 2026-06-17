@@ -71,38 +71,29 @@
             }
 
             // 9. 检查是否有来自网盘链接的密码交接
-            // 9. 检查网盘密码映射 (按URL前缀匹配，消费后删除该条目)
+            // 9. 检查网盘密码映射 (按URL前缀匹配消费；过期清理由cleanExpiredPanEntries在读写时顺带完成)
             const checkPanCodeMap = async () => {
                 if (!getConfig('enablePaste')) return;
 
-                const map = await safeGetValue('pan_code_map', {});
-                if (!map || Object.keys(map).length === 0) return;
+                const map = cleanExpiredPanEntries(await safeGetValue('pan_code_map', {}));
+                if (Object.keys(map).length === 0) return;
 
-                const MAX_AGE = 3600000; // 1小时过期清理
-                const now = Date.now();
-                let cleaned = false;
                 const currentUrl = window.location.href;
+                let consumed = false;
 
-                // 遍历所有条目：过期清理 OR 当前页匹配消费
                 for (const storedUrl of Object.keys(map)) {
-                    if (now - map[storedUrl].ts > MAX_AGE) {
-                        delete map[storedUrl];
-                        cleaned = true;
-                        continue;
-                    }
-                    // 当前页面URL包含存储的URL → 匹配
                     if (currentUrl.includes(storedUrl.replace(/^https?:\/\//, '').split('/')[0])) {
                         sessionPanCode = map[storedUrl].code;
                         delete map[storedUrl];
-                        cleaned = true;
+                        consumed = true;
                         if (getConfig('enableToast')) {
                             showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
                         }
-                        break;  // 一次只消费一个
+                        break;
                     }
                 }
 
-                if (cleaned) {
+                if (consumed) {
                     await safeSetValue('pan_code_map', map);
                 }
             };
