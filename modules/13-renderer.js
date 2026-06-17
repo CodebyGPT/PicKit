@@ -241,15 +241,17 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 网盘密码交接 (使用第一个URL)
+                        // 网盘密码缓存 (无过期时间，优先级高于闪电粘贴)
                         const panPassword = linkData.password || null;
                         if (panPassword && getConfig('enablePaste') && linkData.urls[0]) {
-                            await safeSetValue('pan_paste_handover', {
+                            await safeSetValue('pan_code_cache', {
                                 url: linkData.urls[0].url,
                                 code: panPassword,
                                 timestamp: Date.now()
                             });
-                            showToast('Password: ' + panPassword);
+                            if (getConfig('enableToast')) {
+                                showToast(t('toast_password_pasted') + ': ' + panPassword);
+                            }
                         }
                         // 打开所有链接 (间隔200ms避免弹窗拦截)
                         linkData.urls.forEach((u, i) => {

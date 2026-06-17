@@ -107,7 +107,7 @@ function handleContextMenu(e) {
     if (getConfig('enablePaste')) {
         safeSetValue('smart_paste_cache', null);
         sessionPanCode = null;
-        safeSetValue('pan_paste_handover', null);
+        safeSetValue('pan_code_cache', null);
     }
 }
 
@@ -123,12 +123,14 @@ function handleInputPasteMouseUp(e) {
     const isInput = (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) || target.isContentEditable;
     if (!isInput) return;
     setTimeout(async () => {
+        // 优先检查网盘密码缓存 (无过期时间)
         if (sessionPanCode) {
             initContainer();
             const rect = target.getBoundingClientRect();
             renderButton(rect, e.clientX, e.clientY, '', '', 'paste');
             return;
         }
+        // 其次检查闪电粘贴缓存 (8秒过期)
         const cache = await safeGetValue('smart_paste_cache', null);
         if (!cache || !cache.text) return;
         if (Date.now() - cache.timestamp > 8000) {

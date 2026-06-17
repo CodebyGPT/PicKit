@@ -50,13 +50,11 @@
                 document.addEventListener('dragend', handleLinkDragEnd, false);
             }
 
-            // 7. 页面隐藏时清理闪电粘贴缓存
+            // 7. 页面隐藏时清理闪电粘贴缓存 (网盘密码缓存不清理，无过期限制)
             const handleVisibilityChange = () => {
                 if (document.visibilityState === 'hidden') {
                     if (getConfig('enablePaste')) {
                         safeSetValue('smart_paste_cache', null);
-                        sessionPanCode = null;
-                        safeSetValue('pan_paste_handover', null);
                     }
                 }
             };
@@ -73,26 +71,27 @@
             }
 
             // 9. 检查是否有来自网盘链接的密码交接
-            const checkPanHandover = async () => {
+            // 9. 检查是否有网盘密码缓存 (无过期时间)
+            const checkPanCodeCache = async () => {
                 if (!getConfig('enablePaste')) return;
 
-                const handover = await safeGetValue('pan_paste_handover', null);
-                if (handover && handover.code) {
-                    if (Date.now() - handover.timestamp < 15000) {
-                        try {
-                            const currentUrl = window.location.href;
-                            const targetUrlObj = new URL(handover.url);
+                const panCache = await safeGetValue('pan_code_cache', null);
+                if (panCache && panCache.code) {
+                    try {
+                        const currentUrl = window.location.href;
+                        const targetUrlObj = new URL(panCache.url);
 
-                            if (currentUrl.includes(targetUrlObj.host)) {
-                                sessionPanCode = handover.code;
-                                safeSetValue('pan_paste_handover', null);
+                        if (currentUrl.includes(targetUrlObj.host)) {
+                            sessionPanCode = panCache.code;
+                            safeSetValue('pan_code_cache', null);  // 消费后清除
+                            if (getConfig('enableToast')) {
                                 showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
                             }
-                        } catch (e) {}
-                    }
+                        }
+                    } catch (e) {}
                 }
             };
-            setTimeout(checkPanHandover, 300);
+            setTimeout(checkPanCodeCache, 300);
 
         } catch (e) {
             //console.error('Smart Copy 启动失败:', e);
