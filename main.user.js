@@ -972,28 +972,41 @@ function extractUrlsFromText(text) {
     return results;
 }
 
-// [重写] 智能链接与密码提取器 (支持多链接)
+// 提取所有密码及其在原文中的位置
+function extractAllCodesWithPositions(rawText) {
+    const results = [];
+    const codePatterns = [
+        /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)\s*[:：\s]+\s*([a-zA-Z0-9]{3,8})(?![a-zA-Z0-9])/gi,
+        /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)[:：]([a-zA-Z0-9]{3,8})(?![a-zA-Z0-9])/gi,
+        /码\s*[:：\s]*([a-zA-Z0-9]{3,8})(?![a-zA-Z0-9])/gi,
+        /\([:：\s]*([a-zA-Z0-9]{3,8})\s*\)/gi,
+    ];
+    const seen = new Set(); // 去重：同一位置同一code只记一次
+    for (const pat of codePatterns) {
+        let m;
+        while ((m = pat.exec(rawText)) !== null) {
+            const key = m.index + '|' + m[1];
+            if (!seen.has(key)) {
+                seen.add(key);
+                results.push({ code: m[1], index: m.index });
+            }
+        }
+    }
+    results.sort((a, b) => a.index - b.index);
+    return results;
+}
+
+// [重写] 智能链接与密码提取器 (支持多链接 + 每URL独立密码)
 function extractLinkAndCode(rawText) {
     if (!rawText) return null;
 
-    // ---- 阶段1: 提取密码/提取码 ----
-    let password = null;
-    const codePatterns = [
-        /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)\s*[:：\s]+\s*([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
-        /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)[:：]([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
-        /码\s*[:：\s]*([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
-        /\([:：\s]*([a-zA-Z0-9]{4,8})\s*\)/,
-    ];
-    for (const pat of codePatterns) {
-        const m = rawText.match(pat);
-        if (m) { password = m[1]; break; }
-    }
+    // ---- 阶段1: 提取所有密码及其位置 ----
+    const allCodes = extractAllCodesWithPositions(rawText);
+    const password = allCodes.length > 0 ? allCodes[0].code : null;
 
     // ---- 阶段2: 提取URL (双重策略) ----
-    // 策略A: 在原文中搜索 (适用中文注释在URL后方)
     let urls = extractUrlsFromText(rawText);
 
-    // 策略B: 如果原文找不到锚点，在清洗后文本中搜索 (适用中文嵌入URL内部)
     if (urls.length === 0) {
         const cleanText = rawText
             .replace(/[\u4e00-\u9fa5]+/g, '')
@@ -1002,6 +1015,26 @@ function extractLinkAndCode(rawText) {
     }
 
     if (urls.length === 0 && !password) return null;
+
+    // ---- 阶段3: 为每个URL分配最近的密码 ----
+    let searchFrom = 0;
+    for (let i = 0; i < urls.length; i++) {
+        const u = urls[i];
+        // 从上一URL之后搜索当前URL的主机名位置
+        const urlIdx = rawText.indexOf(u.host, searchFrom);
+        if (urlIdx === -1) continue;
+        searchFrom = urlIdx + 1;
+
+        const nextUrlIdx = i + 1 < urls.length
+            ? rawText.indexOf(urls[i + 1].host, searchFrom)
+            : rawText.length;
+
+        // 查找位于此URL之后、下一URL之前的密码
+        const matched = allCodes.filter(c => c.index > urlIdx && c.index < nextUrlIdx);
+        if (matched.length > 0) {
+            urls[i].code = matched[0].code;
+        }
+    }
 
     return {
         urls: urls,
@@ -2117,16 +2150,21 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 网盘密码缓存 (无过期时间，优先级高于闪电粘贴)
-                        const panPassword = linkData.password || null;
-                        if (panPassword && getConfig('enablePaste') && linkData.urls[0]) {
-                            await safeSetValue('pan_code_cache', {
-                                url: linkData.urls[0].url,
-                                code: panPassword,
-                                timestamp: Date.now()
+                        // 构建每URL独立的密码映射 (以完整URL为key，避免同域名覆盖)
+                        if (getConfig('enablePaste')) {
+                            const map = await safeGetValue('pan_code_map', {});
+                            let savedCount = 0;
+                            linkData.urls.forEach((u) => {
+                                if (u.code) {
+                                    map[u.url] = { code: u.code, ts: Date.now() };
+                                    savedCount++;
+                                }
                             });
-                            if (getConfig('enableToast')) {
-                                showToast(t('toast_password_pasted') + ': ' + panPassword);
+                            if (savedCount > 0) {
+                                await safeSetValue('pan_code_map', map);
+                                if (getConfig('enableToast')) {
+                                    showToast(t('toast_password_pasted') + ' x' + savedCount);
+                                }
                             }
                         }
                         // 打开所有链接 (间隔200ms避免弹窗拦截)
@@ -2415,7 +2453,7 @@ function handleContextMenu(e) {
     if (getConfig('enablePaste')) {
         safeSetValue('smart_paste_cache', null);
         sessionPanCode = null;
-        safeSetValue('pan_code_cache', null);
+        safeSetValue('pan_code_map', {});
     }
 }
 
@@ -3144,27 +3182,42 @@ async function restoreInputData() {
             }
 
             // 9. 检查是否有来自网盘链接的密码交接
-            // 9. 检查是否有网盘密码缓存 (无过期时间)
-            const checkPanCodeCache = async () => {
+            // 9. 检查网盘密码映射 (按URL前缀匹配，消费后删除该条目)
+            const checkPanCodeMap = async () => {
                 if (!getConfig('enablePaste')) return;
 
-                const panCache = await safeGetValue('pan_code_cache', null);
-                if (panCache && panCache.code) {
-                    try {
-                        const currentUrl = window.location.href;
-                        const targetUrlObj = new URL(panCache.url);
+                const map = await safeGetValue('pan_code_map', {});
+                if (!map || Object.keys(map).length === 0) return;
 
-                        if (currentUrl.includes(targetUrlObj.host)) {
-                            sessionPanCode = panCache.code;
-                            safeSetValue('pan_code_cache', null);  // 消费后清除
-                            if (getConfig('enableToast')) {
-                                showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
-                            }
+                const MAX_AGE = 3600000; // 1小时过期清理
+                const now = Date.now();
+                let cleaned = false;
+                const currentUrl = window.location.href;
+
+                // 遍历所有条目：过期清理 OR 当前页匹配消费
+                for (const storedUrl of Object.keys(map)) {
+                    if (now - map[storedUrl].ts > MAX_AGE) {
+                        delete map[storedUrl];
+                        cleaned = true;
+                        continue;
+                    }
+                    // 当前页面URL包含存储的URL → 匹配
+                    if (currentUrl.includes(storedUrl.replace(/^https?:\/\//, '').split('/')[0])) {
+                        sessionPanCode = map[storedUrl].code;
+                        delete map[storedUrl];
+                        cleaned = true;
+                        if (getConfig('enableToast')) {
+                            showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
                         }
-                    } catch (e) {}
+                        break;  // 一次只消费一个
+                    }
+                }
+
+                if (cleaned) {
+                    await safeSetValue('pan_code_map', map);
                 }
             };
-            setTimeout(checkPanCodeCache, 300);
+            setTimeout(checkPanCodeMap, 300);
 
         } catch (e) {
             //console.error('Smart Copy 启动失败:', e);

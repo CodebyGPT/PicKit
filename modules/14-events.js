@@ -107,7 +107,7 @@ function handleContextMenu(e) {
     if (getConfig('enablePaste')) {
         safeSetValue('smart_paste_cache', null);
         sessionPanCode = null;
-        safeSetValue('pan_code_cache', null);
+        safeSetValue('pan_code_map', {});
     }
 }
 

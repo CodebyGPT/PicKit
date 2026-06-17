@@ -241,16 +241,21 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 网盘密码缓存 (无过期时间，优先级高于闪电粘贴)
-                        const panPassword = linkData.password || null;
-                        if (panPassword && getConfig('enablePaste') && linkData.urls[0]) {
-                            await safeSetValue('pan_code_cache', {
-                                url: linkData.urls[0].url,
-                                code: panPassword,
-                                timestamp: Date.now()
+                        // 构建每URL独立的密码映射 (以完整URL为key，避免同域名覆盖)
+                        if (getConfig('enablePaste')) {
+                            const map = await safeGetValue('pan_code_map', {});
+                            let savedCount = 0;
+                            linkData.urls.forEach((u) => {
+                                if (u.code) {
+                                    map[u.url] = { code: u.code, ts: Date.now() };
+                                    savedCount++;
+                                }
                             });
-                            if (getConfig('enableToast')) {
-                                showToast(t('toast_password_pasted') + ': ' + panPassword);
+                            if (savedCount > 0) {
+                                await safeSetValue('pan_code_map', map);
+                                if (getConfig('enableToast')) {
+                                    showToast(t('toast_password_pasted') + ' x' + savedCount);
+                                }
                             }
                         }
                         // 打开所有链接 (间隔200ms避免弹窗拦截)

@@ -173,28 +173,41 @@ function extractUrlsFromText(text) {
     return results;
 }
 
-// [重写] 智能链接与密码提取器 (支持多链接)
+// 提取所有密码及其在原文中的位置
+function extractAllCodesWithPositions(rawText) {
+    const results = [];
+    const codePatterns = [
+        /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)\s*[:：\s]+\s*([a-zA-Z0-9]{3,8})(?![a-zA-Z0-9])/gi,
+        /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)[:：]([a-zA-Z0-9]{3,8})(?![a-zA-Z0-9])/gi,
+        /码\s*[:：\s]*([a-zA-Z0-9]{3,8})(?![a-zA-Z0-9])/gi,
+        /\([:：\s]*([a-zA-Z0-9]{3,8})\s*\)/gi,
+    ];
+    const seen = new Set(); // 去重：同一位置同一code只记一次
+    for (const pat of codePatterns) {
+        let m;
+        while ((m = pat.exec(rawText)) !== null) {
+            const key = m.index + '|' + m[1];
+            if (!seen.has(key)) {
+                seen.add(key);
+                results.push({ code: m[1], index: m.index });
+            }
+        }
+    }
+    results.sort((a, b) => a.index - b.index);
+    return results;
+}
+
+// [重写] 智能链接与密码提取器 (支持多链接 + 每URL独立密码)
 function extractLinkAndCode(rawText) {
     if (!rawText) return null;
 
-    // ---- 阶段1: 提取密码/提取码 ----
-    let password = null;
-    const codePatterns = [
-        /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)\s*[:：\s]+\s*([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
-        /(?:提取码|提取密碼|密码|訪問碼|访问码|分享码|口令|code|pwd|key|pw|pass)[:：]([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
-        /码\s*[:：\s]*([a-zA-Z0-9]{4,8})(?![a-zA-Z0-9])/i,
-        /\([:：\s]*([a-zA-Z0-9]{4,8})\s*\)/,
-    ];
-    for (const pat of codePatterns) {
-        const m = rawText.match(pat);
-        if (m) { password = m[1]; break; }
-    }
+    // ---- 阶段1: 提取所有密码及其位置 ----
+    const allCodes = extractAllCodesWithPositions(rawText);
+    const password = allCodes.length > 0 ? allCodes[0].code : null;
 
     // ---- 阶段2: 提取URL (双重策略) ----
-    // 策略A: 在原文中搜索 (适用中文注释在URL后方)
     let urls = extractUrlsFromText(rawText);
 
-    // 策略B: 如果原文找不到锚点，在清洗后文本中搜索 (适用中文嵌入URL内部)
     if (urls.length === 0) {
         const cleanText = rawText
             .replace(/[\u4e00-\u9fa5]+/g, '')
@@ -203,6 +216,26 @@ function extractLinkAndCode(rawText) {
     }
 
     if (urls.length === 0 && !password) return null;
+
+    // ---- 阶段3: 为每个URL分配最近的密码 ----
+    let searchFrom = 0;
+    for (let i = 0; i < urls.length; i++) {
+        const u = urls[i];
+        // 从上一URL之后搜索当前URL的主机名位置
+        const urlIdx = rawText.indexOf(u.host, searchFrom);
+        if (urlIdx === -1) continue;
+        searchFrom = urlIdx + 1;
+
+        const nextUrlIdx = i + 1 < urls.length
+            ? rawText.indexOf(urls[i + 1].host, searchFrom)
+            : rawText.length;
+
+        // 查找位于此URL之后、下一URL之前的密码
+        const matched = allCodes.filter(c => c.index > urlIdx && c.index < nextUrlIdx);
+        if (matched.length > 0) {
+            urls[i].code = matched[0].code;
+        }
+    }
 
     return {
         urls: urls,

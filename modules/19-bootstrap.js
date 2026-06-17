@@ -71,27 +71,42 @@
             }
 
             // 9. 检查是否有来自网盘链接的密码交接
-            // 9. 检查是否有网盘密码缓存 (无过期时间)
-            const checkPanCodeCache = async () => {
+            // 9. 检查网盘密码映射 (按URL前缀匹配，消费后删除该条目)
+            const checkPanCodeMap = async () => {
                 if (!getConfig('enablePaste')) return;
 
-                const panCache = await safeGetValue('pan_code_cache', null);
-                if (panCache && panCache.code) {
-                    try {
-                        const currentUrl = window.location.href;
-                        const targetUrlObj = new URL(panCache.url);
+                const map = await safeGetValue('pan_code_map', {});
+                if (!map || Object.keys(map).length === 0) return;
 
-                        if (currentUrl.includes(targetUrlObj.host)) {
-                            sessionPanCode = panCache.code;
-                            safeSetValue('pan_code_cache', null);  // 消费后清除
-                            if (getConfig('enableToast')) {
-                                showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
-                            }
+                const MAX_AGE = 3600000; // 1小时过期清理
+                const now = Date.now();
+                let cleaned = false;
+                const currentUrl = window.location.href;
+
+                // 遍历所有条目：过期清理 OR 当前页匹配消费
+                for (const storedUrl of Object.keys(map)) {
+                    if (now - map[storedUrl].ts > MAX_AGE) {
+                        delete map[storedUrl];
+                        cleaned = true;
+                        continue;
+                    }
+                    // 当前页面URL包含存储的URL → 匹配
+                    if (currentUrl.includes(storedUrl.replace(/^https?:\/\//, '').split('/')[0])) {
+                        sessionPanCode = map[storedUrl].code;
+                        delete map[storedUrl];
+                        cleaned = true;
+                        if (getConfig('enableToast')) {
+                            showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
                         }
-                    } catch (e) {}
+                        break;  // 一次只消费一个
+                    }
+                }
+
+                if (cleaned) {
+                    await safeSetValue('pan_code_map', map);
                 }
             };
-            setTimeout(checkPanCodeCache, 300);
+            setTimeout(checkPanCodeMap, 300);
 
         } catch (e) {
             //console.error('Smart Copy 启动失败:', e);
