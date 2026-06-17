@@ -117,6 +117,7 @@ const PAN_DOMAINS = [
     'aliyundrive.com', 'alipan.com', '123pan.com', 'pan.quark.cn',
     'pan.xunlei.com', '115.com', 'drive.uc.cn', 'fast.uc.cn', 'ctfile.com'
 ];
+
 // [新增] 仅在当前Tab有效的网盘密码缓存（用于新标签页接收）
 let sessionPanCode = null;
 
@@ -765,7 +766,7 @@ function registerMenus() {
         const val = prompt(t('prompt_tld_add'));
         if (!val) return;
         let tld = val.trim().toLowerCase().replace(/^\./, ''); // 移除前导点
-        // 验证：只允许字母和点
+        // 验证：只允许字母
         if (!/^[a-z]{2,}$/.test(tld)) {
             alert(t('err_tld_invalid'));
             return;
@@ -840,7 +841,6 @@ function extractLinkAndCode(rawText) {
 
     // 取最后一个有效URL (通常是最完整的)
     let bestUrl = null;
-    let bestHost = null;
     const effectiveTLDs = getEffectiveTLDs();
 
     for (const candidate of matches) {
@@ -858,7 +858,6 @@ function extractLinkAndCode(rawText) {
         // 补全协议
         let fullUrl = url.startsWith('http') ? url : 'http://' + url;
         bestUrl = { display: url, url: fullUrl, host: host };
-        bestHost = host;
     }
 
     if (!bestUrl) return password ? { password } : null;

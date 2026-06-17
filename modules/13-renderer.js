@@ -180,7 +180,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(searchBtn);
         }
 
-        // 锁链按钮逻辑
+        // @按钮 / 锁链按钮逻辑
         const activeEl = document.activeElement;
         const isUserEditing = activeEl && (
             (['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && !activeEl.readOnly) ||
@@ -188,38 +188,62 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             document.designMode === 'on'
         );
         if (!isUserEditing && !targetInput && mode !== PASTE_MODE_THREE_BTNS) {
-            const linkData = extractLinkFromText(text);
-            if (linkData) {
+            // 1. 先检测邮箱地址 (优先级高于链接)
+            const emailAddr = extractEmailFromText(text);
+            if (emailAddr) {
                 const div = document.createElement('div');
                 div.className = isCol ? 'divider divider-h' : 'divider divider-v';
                 container.appendChild(div);
 
-                const chainBtn = document.createElement('div');
-                chainBtn.className = 'sc-btn';
-                chainBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
-                chainBtn.title = t('btn_open_link');
-                chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
-                chainBtn.onclick = async (e) => {
+                const atBtn = document.createElement('div');
+                atBtn.className = 'sc-btn';
+                atBtn.innerHTML = `<svg viewBox="0 0 48 48" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44V44C28.9886 44 33.5507 42.1735 37.0539 39.1529" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M24 32C28.4183 32 32 28.4183 32 24C32 19.5817 28.4183 16 24 16C19.5817 16 16 19.5817 16 24C16 28.4183 19.5817 32 24 32Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="miter"/><path d="M32 24C32 27.3137 34.6863 30 38 30V30C41.3137 30 44 27.3137 44 24" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M32 25V16" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter"/></svg>`;
+                atBtn.title = t('btn_email');
+                atBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
+                atBtn.onclick = async (e) => {
                     e.stopPropagation();
-                    let panPassword = null;
-                    if (getConfig('enablePaste')) {
-                        const isPan = PAN_DOMAINS.some(d => linkData.host.includes(d));
-                        if (isPan) {
-                            panPassword = extractPanCode(text);
+                    // 复制完整邮箱到剪贴板
+                    try {
+                        await navigator.clipboard.writeText(emailAddr);
+                    } catch (_) {
+                        if (typeof GM_setClipboard === 'function') {
+                            GM_setClipboard(emailAddr, 'text');
                         }
                     }
-                    if (panPassword) {
-                        await safeSetValue('pan_paste_handover', {
-                            url: linkData.url,
-                            code: panPassword,
-                            timestamp: Date.now()
-                        });
-                        showToast(`Password: ${panPassword}`);
-                    }
-                    safeOpenTab(linkData.url, { active: true });
+                    showToast(t('toast_email_copied'));
                     hideUI();
                 };
-                container.appendChild(chainBtn);
+                container.appendChild(atBtn);
+            } else {
+                // 2. 检测网址链接
+                const linkData = extractLinkAndCode(text);
+                if (linkData && linkData.url) {
+                    const div = document.createElement('div');
+                    div.className = isCol ? 'divider divider-h' : 'divider divider-v';
+                    container.appendChild(div);
+
+                    const chainBtn = document.createElement('div');
+                    chainBtn.className = 'sc-btn';
+                    chainBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
+                    chainBtn.title = t('btn_open_link');
+                    chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
+                    chainBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        // 使用已提取的密码
+                        const panPassword = linkData.password || null;
+                        if (panPassword && getConfig('enablePaste')) {
+                            await safeSetValue('pan_paste_handover', {
+                                url: linkData.url,
+                                code: panPassword,
+                                timestamp: Date.now()
+                            });
+                            showToast(`Password: ${panPassword}`);
+                        }
+                        safeOpenTab(linkData.url, { active: true });
+                        hideUI();
+                    };
+                    container.appendChild(chainBtn);
+                }
             }
         }
 

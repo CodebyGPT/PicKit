@@ -18,6 +18,7 @@ const DEFAULT_CONFIG = {
     smartEngine: false,        // 是否启用智能分配
     fallbackEngine: 'bing',   // 不含中文时的备用引擎
     enableDeleteBtn: true, // 是否显示删除按钮
+    customTLDs: [], // 用户自定义的顶级域名列表
 };
 
 const SCROLL_REPAINT_MODE = {
@@ -35,14 +36,29 @@ const SEARCH_ENGINES = {
     brave: { name: 'Brave', url: 'https://search.brave.com/search?q=%s' },
 };
 
+// [新增] 顶级域名白名单 (Top 100 TLDs)
+const TLD_SET = new Set([
+    'com', 'cn', 'de', 'tk', 'uk', 'net', 'org', 'top', 'ru',
+    'info', 'br', 'xyz', 'ga', 'nl', 'it', 'ws', 'ml', 'shop',
+    'cf', 'fr', 'co', 'eu', 'in', 'online', 'au', 'gq', 'ph',
+    'us', 'ca', 'vip', 'club', 'pl', 'cc', 'biz', 'store', 'za',
+    'site', 'ch', 'se', 'es', 'tw', 'loan', 'jp', 'me', 'be',
+    'live', 'buzz', 'at', 'ir', 'work', 'app', 'sbs', 'cz', 'pro',
+    'click', 'id', 'dk', 'io', 'mx', 'bond', 'kr', 'wang', 'lol',
+    'no', 'tr', 'cfd', 'nu', 'hu', 'life', 'ai', 'asia', 'my',
+    'cl', 'ua', 'ro', 'icu', 'cloud', 'win', 'link', 'ar', 'nz',
+    'vn', 'ltd', 'world', 'dev', 'fun', 'mobi', 'space', 'tv',
+    'cyou', 'fi', 'tech', 'sk', 'today', 'gr', 'one', 'digital',
+    'gov', 'edu'
+]);
+const TLD_SET_EXTENDED = new Set(TLD_SET); // 可扩展副本，用于合并自定义TLD
+
 // [新增] 网盘域名匹配规则 (用于闪电粘贴密码提取)
 const PAN_DOMAINS = [
     'pan.baidu.com', 'lanzou', 'weiyun.com', 'cloud.189.cn',
     'aliyundrive.com', 'alipan.com', '123pan.com', 'pan.quark.cn',
     'pan.xunlei.com', '115.com', 'drive.uc.cn', 'fast.uc.cn', 'ctfile.com'
 ];
-// [新增] 网盘密码提取正则
-const PAN_CODE_REGEX = /(?:提取码|密码|访问码|分享码|口令)\s*[:：]?\s*([a-zA-Z0-9]{4})(?![a-zA-Z0-9])/;
 
 // [新增] 仅在当前Tab有效的网盘密码缓存（用于新标签页接收）
 let sessionPanCode = null;

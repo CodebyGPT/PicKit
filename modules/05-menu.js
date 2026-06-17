@@ -17,6 +17,12 @@ async function initConfiguration() {
     // 额外加载屏蔽规则 (blocked_elements)
     const blockedRules = await safeGetValue('blocked_elements', {});
     configCache['blocked_elements'] = blockedRules;
+
+    // 加载自定义TLD并合并到扩展集合
+    const customTLDs = configCache['customTLDs'] || [];
+    if (customTLDs.length > 0) {
+        customTLDs.forEach(t => TLD_SET_EXTENDED.add(t.toLowerCase().replace(/^\./, '')));
+    }
 }
 
 // 首次运行时根据时区自动设置搜索引擎
@@ -201,6 +207,27 @@ function registerMenus() {
                 alert(t('alert_no_rules'));
             }
         }
+    });
+
+    // 新增：添加自定义顶级域名
+    GM_registerMenuCommand(t('menu_tld_add'), () => {
+        const val = prompt(t('prompt_tld_add'));
+        if (!val) return;
+        let tld = val.trim().toLowerCase().replace(/^\./, ''); // 移除前导点
+        // 验证：只允许字母
+        if (!/^[a-z]{2,}$/.test(tld)) {
+            alert(t('err_tld_invalid'));
+            return;
+        }
+        const current = getConfig('customTLDs') || [];
+        if (current.includes(tld)) {
+            showToast('TLD already exists: ' + tld);
+            return;
+        }
+        current.push(tld);
+        setConfig('customTLDs', current);
+        TLD_SET_EXTENDED.add(tld);
+        showToast(t('toast_tld_added', tld));
     });
 
     // 新增：编辑网页

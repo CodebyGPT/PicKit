@@ -12,7 +12,8 @@ const crossModuleGlobals = {
   PASTE_MODE_THREE_BTNS: "readonly",
   SEARCH_ENGINES: "readonly",
   PAN_DOMAINS: "readonly",
-  PAN_CODE_REGEX: "readonly",
+  TLD_SET: "readonly",
+  TLD_SET_EXTENDED: "readonly",
   sessionPanCode: "writable",
   cachedSelection: "writable",
   uiTimer: "writable",
@@ -37,9 +38,9 @@ const crossModuleGlobals = {
   initDefaultSearchEngine: "readonly",
   registerMenus: "readonly",
   // 06-extractors.js
-  extractURLs: "readonly",
-  extractPanCode: "readonly",
-  extractLinkFromText: "readonly",
+  extractLinkAndCode: "readonly",
+  extractEmailFromText: "readonly",
+  getEffectiveTLDs: "readonly",
   // 07-selection.js
   getAnchorPosition: "readonly",
   getSelectionCoords: "readonly",
