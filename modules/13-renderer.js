@@ -89,6 +89,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     text: contentToCopy,
                     timestamp: Date.now()
                 });
+                unregisterVisibilityCleanup();
             }
             showToast(getSpringFestivalToastText());
             setTimeout(hideUI, 50);
@@ -128,6 +129,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                         text: contentToCopy,
                         timestamp: Date.now()
                     });
+                    unregisterVisibilityCleanup();
                 }
                 setTimeout(hideUI, 35);
             };
@@ -318,6 +320,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                         text: cache.text,
                         timestamp: Date.now()
                     });
+                    registerVisibilityCleanup();
                 }
                 hideUI();
             };
@@ -349,6 +352,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     text: existingCache.text,
                     timestamp: Date.now()
                 });
+                registerVisibilityCleanup();
             }
             hideUI();
         };

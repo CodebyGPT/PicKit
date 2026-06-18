@@ -4,7 +4,7 @@
 // @name:ru            Панель_выбора_текста
 // @name:zh-CN         划词工具栏
 // @namespace          https://github.com/CodebyGPT/Text_Selection_Toolbar
-// @version            2026.06.17
+// @version            2026.06.18
 // @description        Add a text selection toolbar to your browser.-为你的浏览器增加一个划词工具栏。
 // @description:en     Add a text selection toolbar to your browser.
 // @description:ru     Добавьте панель инструментов для выделения текста в ваш браузер.
@@ -2064,6 +2064,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     text: contentToCopy,
                     timestamp: Date.now()
                 });
+                unregisterVisibilityCleanup();
             }
             showToast(getSpringFestivalToastText());
             setTimeout(hideUI, 50);
@@ -2103,6 +2104,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                         text: contentToCopy,
                         timestamp: Date.now()
                     });
+                    unregisterVisibilityCleanup();
                 }
                 setTimeout(hideUI, 35);
             };
@@ -2293,6 +2295,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                         text: cache.text,
                         timestamp: Date.now()
                     });
+                    registerVisibilityCleanup();
                 }
                 hideUI();
             };
@@ -2324,6 +2327,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     text: existingCache.text,
                     timestamp: Date.now()
                 });
+                registerVisibilityCleanup();
             }
             hideUI();
         };
@@ -2457,7 +2461,7 @@ function handleSelectionMouseUp(e) {
         if (getConfig('enablePaste')) {
             cache = await safeGetValue('smart_paste_cache', null);
         }
-        const cacheValid = cache && (Date.now() - cache.timestamp < 8000);
+        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000);
         const target = document.activeElement;
         const isInput = target && (
             (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) ||
@@ -2521,7 +2525,8 @@ const handleResizeOrScroll = () => {
 function handleContextMenu(e) {
     hideUI();
     if (getConfig('enablePaste')) {
-        safeSetValue('smart_paste_cache', null);
+        safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
+        unregisterVisibilityCleanup();
         sessionPanCode = null;
         safeSetValue('pan_code_map', {});
     }
@@ -2549,10 +2554,7 @@ function handleInputPasteMouseUp(e) {
         // 其次检查闪电粘贴缓存 (8秒过期)
         const cache = await safeGetValue('smart_paste_cache', null);
         if (!cache || !cache.text) return;
-        if (Date.now() - cache.timestamp > 8000) {
-            await safeSetValue('smart_paste_cache', null);
-            return;
-        }
+        if (Date.now() - cache.timestamp > 8000) return;
         let selectedText = '';
         let hasSelection = false;
         if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {
@@ -3081,15 +3083,30 @@ function getSpringFestivalToastText() {
                 document.addEventListener('dragend', handleLinkDragEnd, false);
             }
 
-            // 7. 页面隐藏时清理闪电粘贴缓存 (网盘密码缓存不清理，无过期限制)
-            const handleVisibilityChange = () => {
-                if (document.visibilityState === 'hidden') {
-                    if (getConfig('enablePaste')) {
-                        safeSetValue('smart_paste_cache', null);
+            // 7. 闪电粘贴条件式 visibilitychange 清理 (动态注册/注销)
+            // 复制/剪切写入缓存时注销监听，粘贴重置时间戳时注册监听
+            // 页面隐藏时写入过期缓存覆盖 (严禁主动删除，只允许单向覆盖)
+            let _visibilityChangeHandler = null;
+
+            function registerVisibilityCleanup() {
+                if (_visibilityChangeHandler) return;
+                _visibilityChangeHandler = async () => {
+                    if (document.visibilityState === 'hidden') {
+                        if (getConfig('enablePaste')) {
+                            await safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
+                        }
+                        unregisterVisibilityCleanup();
                     }
+                };
+                document.addEventListener('visibilitychange', _visibilityChangeHandler, false);
+            }
+
+            function unregisterVisibilityCleanup() {
+                if (_visibilityChangeHandler) {
+                    document.removeEventListener('visibilitychange', _visibilityChangeHandler, false);
+                    _visibilityChangeHandler = null;
                 }
-            };
-            document.addEventListener('visibilitychange', handleVisibilityChange, false);
+            }
 
             // 8. 检查网盘密码映射 (URL标识符精确匹配，O(1)查找，无交叉污染)
             const checkPanCodeMap = async () => {

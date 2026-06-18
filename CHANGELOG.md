@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.06.18 — 闪电粘贴跨标签页存活优化
+
+### 改进
+- **条件式 visibilitychange 清理**：复制/剪切产生的缓存不再受标签页切换影响，粘贴重置时间戳后才注册 visibilitychange 监听
+- **动态注册/注销**：`registerVisibilityCleanup()` / `unregisterVisibilityCleanup()` 按需控制监听器生命周期
+- **杜绝主动删除**：所有使缓存失效的路径改为写入过期缓存 `{ text: '', timestamp: 0 }` 覆盖，而非设 null，保持单向覆盖语义
+
+### 技术细节
+- `19-bootstrap.js`：拆除永久注册的 visibilitychange 监听器，改为暴露动态注册/注销函数
+- `13-renderer.js`：复制/剪切写入后调用 `unregisterVisibilityCleanup()`，粘贴重置时间戳后调用 `registerVisibilityCleanup()`
+- `14-events.js`：右键清除和 8 秒过期判定均写入过期缓存覆盖，不再主动设 null
+- 8 秒过期改为纯判定逻辑（不修改缓存），缓存本身保留直到被新复制/剪切覆盖
+
 ## 2026.06.18 — URL标识符精确匹配 + 锚点定位修复
 
 ### 修复

@@ -50,15 +50,30 @@
                 document.addEventListener('dragend', handleLinkDragEnd, false);
             }
 
-            // 7. 页面隐藏时清理闪电粘贴缓存 (网盘密码缓存不清理，无过期限制)
-            const handleVisibilityChange = () => {
-                if (document.visibilityState === 'hidden') {
-                    if (getConfig('enablePaste')) {
-                        safeSetValue('smart_paste_cache', null);
+            // 7. 闪电粘贴条件式 visibilitychange 清理 (动态注册/注销)
+            // 复制/剪切写入缓存时注销监听，粘贴重置时间戳时注册监听
+            // 页面隐藏时写入过期缓存覆盖 (严禁主动删除，只允许单向覆盖)
+            let _visibilityChangeHandler = null;
+
+            function registerVisibilityCleanup() {
+                if (_visibilityChangeHandler) return;
+                _visibilityChangeHandler = async () => {
+                    if (document.visibilityState === 'hidden') {
+                        if (getConfig('enablePaste')) {
+                            await safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
+                        }
+                        unregisterVisibilityCleanup();
                     }
+                };
+                document.addEventListener('visibilitychange', _visibilityChangeHandler, false);
+            }
+
+            function unregisterVisibilityCleanup() {
+                if (_visibilityChangeHandler) {
+                    document.removeEventListener('visibilitychange', _visibilityChangeHandler, false);
+                    _visibilityChangeHandler = null;
                 }
-            };
-            document.addEventListener('visibilitychange', handleVisibilityChange, false);
+            }
 
             // 8. 检查网盘密码映射 (URL标识符精确匹配，O(1)查找，无交叉污染)
             const checkPanCodeMap = async () => {

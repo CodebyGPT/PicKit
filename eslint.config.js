@@ -6,6 +6,9 @@ const crossModuleGlobals = {
   safeGetValue: "readonly",
   safeSetValue: "readonly",
   safeOpenTab: "readonly",
+  // 19-bootstrap.js (动态 visibilitychange)
+  registerVisibilityCleanup: "readonly",
+  unregisterVisibilityCleanup: "readonly",
   // 02-config.js
   DEFAULT_CONFIG: "readonly",
   SCROLL_REPAINT_MODE: "readonly",

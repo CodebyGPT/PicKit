@@ -41,7 +41,7 @@ function handleSelectionMouseUp(e) {
         if (getConfig('enablePaste')) {
             cache = await safeGetValue('smart_paste_cache', null);
         }
-        const cacheValid = cache && (Date.now() - cache.timestamp < 8000);
+        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000);
         const target = document.activeElement;
         const isInput = target && (
             (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) ||
@@ -105,7 +105,8 @@ const handleResizeOrScroll = () => {
 function handleContextMenu(e) {
     hideUI();
     if (getConfig('enablePaste')) {
-        safeSetValue('smart_paste_cache', null);
+        safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
+        unregisterVisibilityCleanup();
         sessionPanCode = null;
         safeSetValue('pan_code_map', {});
     }
@@ -133,10 +134,7 @@ function handleInputPasteMouseUp(e) {
         // 其次检查闪电粘贴缓存 (8秒过期)
         const cache = await safeGetValue('smart_paste_cache', null);
         if (!cache || !cache.text) return;
-        if (Date.now() - cache.timestamp > 8000) {
-            await safeSetValue('smart_paste_cache', null);
-            return;
-        }
+        if (Date.now() - cache.timestamp > 8000) return;
         let selectedText = '';
         let hasSelection = false;
         if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {
