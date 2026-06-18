@@ -241,10 +241,11 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     const titlePrefix = urlCount > 1 ? ('(' + urlCount + ') ') : '';
                     chainBtn.title = titlePrefix + t('btn_open_link');
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
+                    const isSingleLink = urlCount === 1;
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 将第一个提取码写入闪电粘贴缓存 (延长22秒，总有效期30秒)
-                        if (getConfig('enablePaste') && linkData.password) {
+                        // 单链接: 提取码写入闪电粘贴缓存 (延长22秒，总有效期30秒)
+                        if (isSingleLink && getConfig('enablePaste') && linkData.password) {
                             await safeSetValue('smart_paste_cache', {
                                 text: linkData.password,
                                 timestamp: Date.now() + 22000,
@@ -255,7 +256,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                                 showToast(t('toast_password_pasted'));
                             }
                         }
-                        // 打开所有链接 (间隔200ms避免弹窗拦截)
+                        // 批量打开链接 (间隔200ms避免弹窗拦截)
                         linkData.urls.forEach((u, i) => {
                             setTimeout(() => {
                                 safeOpenTab(u.url, { active: i === 0 });
