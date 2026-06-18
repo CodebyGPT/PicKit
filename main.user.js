@@ -111,28 +111,6 @@ const TLD_SET = new Set([
 ]);
 const TLD_SET_EXTENDED = new Set(TLD_SET); // 可扩展副本，用于合并自定义TLD
 
-// [新增] 网盘域名匹配规则 (用于闪电粘贴密码提取)
-const PAN_DOMAINS = [
-    'pan.baidu.com', 'lanzou', 'weiyun.com', 'cloud.189.cn',
-    'aliyundrive.com', 'alipan.com', '123pan.com', 'pan.quark.cn',
-    'pan.xunlei.com', '115.com', 'drive.uc.cn', 'fast.uc.cn', 'ctfile.com'
-];
-
-// [新增] 仅在当前Tab有效的网盘密码缓存（用于新标签页接收）
-let sessionPanCode = null;
-
-// 网盘密码映射过期清理 (事件驱动：在读写pan_code_map时顺带调用)
-const PAN_CODE_MAX_AGE = 3600000; // 1小时
-function cleanExpiredPanEntries(map) {
-    const now = Date.now();
-    for (const key of Object.keys(map)) {
-        if (now - map[key].ts > PAN_CODE_MAX_AGE) {
-            delete map[key];
-        }
-    }
-    return map;
-}
-
 // 运行时状态
 let cachedSelection = { text: '', html: '' };
 let uiTimer = null;
@@ -810,65 +788,6 @@ function registerMenus() {
 }
 
 // 模块 06: 链接与密码提取器 (Link & Password Extractors)
-
-// 从网盘链接中提取唯一标识符，用于跨标签页精确匹配
-// 返回 null 表示无法提取（不影响普通链接的正常使用）
-function extractPanUrlId(url) {
-    try {
-        const u = new URL(url);
-        const host = u.hostname;
-        const path = u.pathname;
-
-        // pan.baidu.com: /s/XXXXX 或 surl=XXXXX
-        if (host.includes('baidu.com')) {
-            const sMatch = path.match(/\/s\/([a-zA-Z0-9_-]+)/);
-            if (sMatch) return sMatch[1];
-            const surl = u.searchParams.get('surl');
-            if (surl) return surl;
-        }
-
-        // cloud.189.cn: /t/XXXXX 或 code=XXXXX
-        if (host === 'cloud.189.cn') {
-            const tMatch = path.match(/\/t\/([a-zA-Z0-9]+)/);
-            if (tMatch) return tMatch[1];
-            const code = u.searchParams.get('code');
-            if (code) return code;
-        }
-
-        // aliyundrive.com / alipan.com: /s/XXXXX
-        if (host.includes('aliyundrive.com') || host.includes('alipan.com')) {
-            const sMatch = path.match(/\/s\/([a-zA-Z0-9]+)/);
-            if (sMatch) return sMatch[1];
-        }
-
-        // 123pan.com: /s/XXXXX
-        if (host.includes('123pan.com')) {
-            const sMatch = path.match(/\/s\/([a-zA-Z0-9]+)/);
-            if (sMatch) return sMatch[1];
-        }
-
-        // pan.quark.cn: /s/XXXXX
-        if (host.includes('quark.cn')) {
-            const sMatch = path.match(/\/s\/([a-zA-Z0-9]+)/);
-            if (sMatch) return sMatch[1];
-        }
-
-        // lanzou*: 最后路径段
-        if (host.includes('lanzou')) {
-            const segments = path.split('/').filter(Boolean);
-            if (segments.length > 0) return segments[segments.length - 1];
-        }
-
-        // 通用回退: hostname + 末段路径
-        const segments = path.split('/').filter(Boolean);
-        const last = segments.length > 0 ? segments[segments.length - 1] : '';
-        if (last && last.length >= 2) return host + '/' + last;
-
-        return null;
-    } catch (_) {
-        return null;
-    }
-}
 
 // 获取合并后的完整TLD集合 (内置 + 用户自定义)
 function getEffectiveTLDs() {
@@ -1976,7 +1895,7 @@ function getBestContrastTheme() {
 // 模块 13: 按钮渲染引擎 (Button Renderer)
 
 // 渲染按钮 (支持 Copy/Search 模式 和 Paste 模式)
-function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', targetInput = null, isEditable = false) {
+function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', targetInput = null, isEditable = false, pasteCache = null) {
     // 清理旧的
     const oldBtn = shadowRoot.querySelector('.sc-container');
     if (oldBtn) oldBtn.remove();
@@ -2218,25 +2137,16 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 构建每URL独立的密码映射 (以URL标识符为key，跨重定向匹配)
-                        // 写入时顺带清理过期条目 (事件驱动，无轮询)
-                        if (getConfig('enablePaste')) {
-                            const map = cleanExpiredPanEntries(await safeGetValue('pan_code_map', {}));
-                            let savedCount = 0;
-                            linkData.urls.forEach((u) => {
-                                if (u.code) {
-                                    const urlId = extractPanUrlId(u.url);
-                                    if (urlId) {
-                                        map[urlId] = { code: u.code, ts: Date.now(), fullUrl: u.url };
-                                        savedCount++;
-                                    }
-                                }
+                        // 将第一个提取码写入闪电粘贴缓存 (延长22秒，总有效期30秒)
+                        if (getConfig('enablePaste') && linkData.password) {
+                            await safeSetValue('smart_paste_cache', {
+                                text: linkData.password,
+                                timestamp: Date.now() + 22000,
+                                type: 'pan_code'
                             });
-                            if (savedCount > 0) {
-                                await safeSetValue('pan_code_map', map);
-                                if (getConfig('enableToast')) {
-                                    showToast(t('toast_password_pasted') + ' x' + savedCount);
-                                }
+                            unregisterVisibilityCleanup();
+                            if (getConfig('enableToast')) {
+                                showToast(t('toast_password_pasted'));
                             }
                         }
                         // 打开所有链接 (间隔200ms避免弹窗拦截)
@@ -2302,19 +2212,27 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(pasteBtn);
         }
     }
-    // 模式 B: 粘贴模式 (闪电粘贴)
+    // 模式 B: 粘贴模式 (闪电粘贴 / 网盘提取码)
     else if (mode === 'paste') {
+        const isPanCode = pasteCache && pasteCache.type === 'pan_code';
         const pasteBtn = document.createElement('div');
         pasteBtn.className = 'sc-btn';
-        pasteBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>`;
-        pasteBtn.title = t('btn_paste');
+        if (isPanCode) {
+            // 钥匙图标 (网盘提取码专用)
+            pasteBtn.innerHTML = '<svg viewBox="0 0 48 48" width="18" height="18" stroke="currentColor" stroke-width="3" fill="none"><path d="M22.8682 24.2982C25.4105 26.7935 26.4138 30.4526 25.4971 33.8863C24.5805 37.32 21.8844 40.0019 18.4325 40.9137C14.9806 41.8256 11.3022 40.8276 8.79375 38.2986C5.02208 34.4141 5.07602 28.2394 8.91499 24.4206C12.754 20.6019 18.9613 20.5482 22.8664 24.3L22.8682 24.2982Z"/><path d="M23 24L40 7"/><path d="M30.3052 16.9001L35.7337 22.3001L42.0671 16.0001L36.6385 10.6001L30.3052 16.9001Z"/></svg>';
+            pasteBtn.title = t('btn_paste') + ' ' + (pasteCache.text || '');
+        } else {
+            pasteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>';
+            pasteBtn.title = t('btn_paste');
+        }
         pasteBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
         pasteBtn.onclick = async (e) => {
             e.stopPropagation();
-            if (typeof sessionPanCode !== 'undefined' && sessionPanCode) {
-                performPaste(targetInput || document.activeElement, sessionPanCode);
+            if (isPanCode) {
+                performPaste(targetInput || document.activeElement, pasteCache.text);
                 showToast(t('toast_password_pasted'));
-                sessionPanCode = null;
+                await safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
+                unregisterVisibilityCleanup();
                 hideUI();
                 return;
             }
@@ -2461,14 +2379,14 @@ function handleSelectionMouseUp(e) {
         if (getConfig('enablePaste')) {
             cache = await safeGetValue('smart_paste_cache', null);
         }
-        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000);
+        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000) && cache.type !== 'pan_code';
         const target = document.activeElement;
         const isInput = target && (
             (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) ||
             target.isContentEditable
         );
         const mode = (cacheValid && isInput) ? PASTE_MODE_THREE_BTNS : 'default';
-        renderButton(rect, e.clientX, e.clientY, text, cachedSelection.html || '', mode, isInput ? target : null, isInput);
+        renderButton(rect, e.clientX, e.clientY, text, cachedSelection.html || '', mode, isInput ? target : null, isInput, cache);
     }, 10);
 }
 
@@ -2527,8 +2445,6 @@ function handleContextMenu(e) {
     if (getConfig('enablePaste')) {
         safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
         unregisterVisibilityCleanup();
-        sessionPanCode = null;
-        safeSetValue('pan_code_map', {});
     }
 }
 
@@ -2544,17 +2460,20 @@ function handleInputPasteMouseUp(e) {
     const isInput = (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) || target.isContentEditable;
     if (!isInput) return;
     setTimeout(async () => {
-        // 优先检查网盘密码缓存 (无过期时间)
-        if (sessionPanCode) {
-            initContainer();
-            const rect = target.getBoundingClientRect();
-            renderButton(rect, e.clientX, e.clientY, '', '', 'paste');
-            return;
-        }
-        // 其次检查闪电粘贴缓存 (8秒过期)
+        // 读取闪电粘贴缓存
         const cache = await safeGetValue('smart_paste_cache', null);
         if (!cache || !cache.text) return;
         if (Date.now() - cache.timestamp > 8000) return;
+
+        // 网盘提取码缓存：强制单粘贴按钮（钥匙图标）
+        if (cache.type === 'pan_code') {
+            initContainer();
+            const rect = target.getBoundingClientRect();
+            renderButton(rect, e.clientX, e.clientY, cache.text, '', 'paste', target, false, cache);
+            return;
+        }
+
+        // 普通闪电粘贴: 检查输入框内选区
         let selectedText = '';
         let hasSelection = false;
         if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {
@@ -2588,7 +2507,7 @@ function handleInputPasteMouseUp(e) {
             }
         }
         if (!hostElement) initContainer();
-        renderButton(rect, e.clientX, e.clientY, textArg, '', mode, target);
+        renderButton(rect, e.clientX, e.clientY, textArg, '', mode, target, false, cache);
     }, 20);
 }
 
@@ -3033,6 +2952,32 @@ function getSpringFestivalToastText() {
 
 // 模块 19: 启动引导 (Bootstrap)
 
+// 闪电粘贴条件式 visibilitychange 清理 (动态注册/注销)
+// 复制/剪切写入缓存时注销监听，粘贴重置时间戳时注册监听
+// 页面隐藏时写入过期缓存覆盖 (严禁主动删除，只允许单向覆盖)
+// 注意：这两个函数必须定义在全局作用域，因为 renderButton 中的 onclick 回调需要访问它们
+let _visibilityChangeHandler = null;
+
+function registerVisibilityCleanup() {
+    if (_visibilityChangeHandler) return;
+    _visibilityChangeHandler = async () => {
+        if (document.visibilityState === 'hidden') {
+            if (getConfig('enablePaste')) {
+                await safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
+            }
+            unregisterVisibilityCleanup();
+        }
+    };
+    document.addEventListener('visibilitychange', _visibilityChangeHandler, false);
+}
+
+function unregisterVisibilityCleanup() {
+    if (_visibilityChangeHandler) {
+        document.removeEventListener('visibilitychange', _visibilityChangeHandler, false);
+        _visibilityChangeHandler = null;
+    }
+}
+
 (function () {
     'use strict';
 
@@ -3082,53 +3027,6 @@ function getSpringFestivalToastText() {
                 document.addEventListener('dragstart', handleLinkDragStart, false);
                 document.addEventListener('dragend', handleLinkDragEnd, false);
             }
-
-            // 7. 闪电粘贴条件式 visibilitychange 清理 (动态注册/注销)
-            // 复制/剪切写入缓存时注销监听，粘贴重置时间戳时注册监听
-            // 页面隐藏时写入过期缓存覆盖 (严禁主动删除，只允许单向覆盖)
-            let _visibilityChangeHandler = null;
-
-            function registerVisibilityCleanup() {
-                if (_visibilityChangeHandler) return;
-                _visibilityChangeHandler = async () => {
-                    if (document.visibilityState === 'hidden') {
-                        if (getConfig('enablePaste')) {
-                            await safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
-                        }
-                        unregisterVisibilityCleanup();
-                    }
-                };
-                document.addEventListener('visibilitychange', _visibilityChangeHandler, false);
-            }
-
-            function unregisterVisibilityCleanup() {
-                if (_visibilityChangeHandler) {
-                    document.removeEventListener('visibilitychange', _visibilityChangeHandler, false);
-                    _visibilityChangeHandler = null;
-                }
-            }
-
-            // 8. 检查网盘密码映射 (URL标识符精确匹配，O(1)查找，无交叉污染)
-            const checkPanCodeMap = async () => {
-                if (!getConfig('enablePaste')) return;
-
-                const map = cleanExpiredPanEntries(await safeGetValue('pan_code_map', {}));
-                if (Object.keys(map).length === 0) return;
-
-                const currentId = extractPanUrlId(window.location.href);
-                if (!currentId) return;
-
-                const entry = map[currentId];
-                if (entry) {
-                    sessionPanCode = entry.code;
-                    delete map[currentId];
-                    if (getConfig('enableToast')) {
-                        showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
-                    }
-                    await safeSetValue('pan_code_map', map);
-                }
-            };
-            setTimeout(checkPanCodeMap, 300);
 
         } catch (e) {
             //console.error('Smart Copy 启动失败:', e);

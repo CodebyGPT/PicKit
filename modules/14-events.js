@@ -41,14 +41,14 @@ function handleSelectionMouseUp(e) {
         if (getConfig('enablePaste')) {
             cache = await safeGetValue('smart_paste_cache', null);
         }
-        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000);
+        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000) && cache.type !== 'pan_code';
         const target = document.activeElement;
         const isInput = target && (
             (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) ||
             target.isContentEditable
         );
         const mode = (cacheValid && isInput) ? PASTE_MODE_THREE_BTNS : 'default';
-        renderButton(rect, e.clientX, e.clientY, text, cachedSelection.html || '', mode, isInput ? target : null, isInput);
+        renderButton(rect, e.clientX, e.clientY, text, cachedSelection.html || '', mode, isInput ? target : null, isInput, cache);
     }, 10);
 }
 
@@ -107,8 +107,6 @@ function handleContextMenu(e) {
     if (getConfig('enablePaste')) {
         safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
         unregisterVisibilityCleanup();
-        sessionPanCode = null;
-        safeSetValue('pan_code_map', {});
     }
 }
 
@@ -124,17 +122,20 @@ function handleInputPasteMouseUp(e) {
     const isInput = (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) || target.isContentEditable;
     if (!isInput) return;
     setTimeout(async () => {
-        // 优先检查网盘密码缓存 (无过期时间)
-        if (sessionPanCode) {
-            initContainer();
-            const rect = target.getBoundingClientRect();
-            renderButton(rect, e.clientX, e.clientY, '', '', 'paste');
-            return;
-        }
-        // 其次检查闪电粘贴缓存 (8秒过期)
+        // 读取闪电粘贴缓存
         const cache = await safeGetValue('smart_paste_cache', null);
         if (!cache || !cache.text) return;
         if (Date.now() - cache.timestamp > 8000) return;
+
+        // 网盘提取码缓存：强制单粘贴按钮（钥匙图标）
+        if (cache.type === 'pan_code') {
+            initContainer();
+            const rect = target.getBoundingClientRect();
+            renderButton(rect, e.clientX, e.clientY, cache.text, '', 'paste', target, false, cache);
+            return;
+        }
+
+        // 普通闪电粘贴: 检查输入框内选区
         let selectedText = '';
         let hasSelection = false;
         if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {
@@ -168,6 +169,6 @@ function handleInputPasteMouseUp(e) {
             }
         }
         if (!hostElement) initContainer();
-        renderButton(rect, e.clientX, e.clientY, textArg, '', mode, target);
+        renderButton(rect, e.clientX, e.clientY, textArg, '', mode, target, false, cache);
     }, 20);
 }

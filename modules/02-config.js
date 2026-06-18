@@ -53,28 +53,6 @@ const TLD_SET = new Set([
 ]);
 const TLD_SET_EXTENDED = new Set(TLD_SET); // 可扩展副本，用于合并自定义TLD
 
-// [新增] 网盘域名匹配规则 (用于闪电粘贴密码提取)
-const PAN_DOMAINS = [
-    'pan.baidu.com', 'lanzou', 'weiyun.com', 'cloud.189.cn',
-    'aliyundrive.com', 'alipan.com', '123pan.com', 'pan.quark.cn',
-    'pan.xunlei.com', '115.com', 'drive.uc.cn', 'fast.uc.cn', 'ctfile.com'
-];
-
-// [新增] 仅在当前Tab有效的网盘密码缓存（用于新标签页接收）
-let sessionPanCode = null;
-
-// 网盘密码映射过期清理 (事件驱动：在读写pan_code_map时顺带调用)
-const PAN_CODE_MAX_AGE = 3600000; // 1小时
-function cleanExpiredPanEntries(map) {
-    const now = Date.now();
-    for (const key of Object.keys(map)) {
-        if (now - map[key].ts > PAN_CODE_MAX_AGE) {
-            delete map[key];
-        }
-    }
-    return map;
-}
-
 // 运行时状态
 let cachedSelection = { text: '', html: '' };
 let uiTimer = null;

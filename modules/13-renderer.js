@@ -1,7 +1,7 @@
 // 模块 13: 按钮渲染引擎 (Button Renderer)
 
 // 渲染按钮 (支持 Copy/Search 模式 和 Paste 模式)
-function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', targetInput = null, isEditable = false) {
+function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', targetInput = null, isEditable = false, pasteCache = null) {
     // 清理旧的
     const oldBtn = shadowRoot.querySelector('.sc-container');
     if (oldBtn) oldBtn.remove();
@@ -243,25 +243,16 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 构建每URL独立的密码映射 (以URL标识符为key，跨重定向匹配)
-                        // 写入时顺带清理过期条目 (事件驱动，无轮询)
-                        if (getConfig('enablePaste')) {
-                            const map = cleanExpiredPanEntries(await safeGetValue('pan_code_map', {}));
-                            let savedCount = 0;
-                            linkData.urls.forEach((u) => {
-                                if (u.code) {
-                                    const urlId = extractPanUrlId(u.url);
-                                    if (urlId) {
-                                        map[urlId] = { code: u.code, ts: Date.now(), fullUrl: u.url };
-                                        savedCount++;
-                                    }
-                                }
+                        // 将第一个提取码写入闪电粘贴缓存 (延长22秒，总有效期30秒)
+                        if (getConfig('enablePaste') && linkData.password) {
+                            await safeSetValue('smart_paste_cache', {
+                                text: linkData.password,
+                                timestamp: Date.now() + 22000,
+                                type: 'pan_code'
                             });
-                            if (savedCount > 0) {
-                                await safeSetValue('pan_code_map', map);
-                                if (getConfig('enableToast')) {
-                                    showToast(t('toast_password_pasted') + ' x' + savedCount);
-                                }
+                            unregisterVisibilityCleanup();
+                            if (getConfig('enableToast')) {
+                                showToast(t('toast_password_pasted'));
                             }
                         }
                         // 打开所有链接 (间隔200ms避免弹窗拦截)
@@ -327,19 +318,27 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(pasteBtn);
         }
     }
-    // 模式 B: 粘贴模式 (闪电粘贴)
+    // 模式 B: 粘贴模式 (闪电粘贴 / 网盘提取码)
     else if (mode === 'paste') {
+        const isPanCode = pasteCache && pasteCache.type === 'pan_code';
         const pasteBtn = document.createElement('div');
         pasteBtn.className = 'sc-btn';
-        pasteBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>`;
-        pasteBtn.title = t('btn_paste');
+        if (isPanCode) {
+            // 钥匙图标 (网盘提取码专用)
+            pasteBtn.innerHTML = '<svg viewBox="0 0 48 48" width="18" height="18" stroke="currentColor" stroke-width="3" fill="none"><path d="M22.8682 24.2982C25.4105 26.7935 26.4138 30.4526 25.4971 33.8863C24.5805 37.32 21.8844 40.0019 18.4325 40.9137C14.9806 41.8256 11.3022 40.8276 8.79375 38.2986C5.02208 34.4141 5.07602 28.2394 8.91499 24.4206C12.754 20.6019 18.9613 20.5482 22.8664 24.3L22.8682 24.2982Z"/><path d="M23 24L40 7"/><path d="M30.3052 16.9001L35.7337 22.3001L42.0671 16.0001L36.6385 10.6001L30.3052 16.9001Z"/></svg>';
+            pasteBtn.title = t('btn_paste') + ' ' + (pasteCache.text || '');
+        } else {
+            pasteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>';
+            pasteBtn.title = t('btn_paste');
+        }
         pasteBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
         pasteBtn.onclick = async (e) => {
             e.stopPropagation();
-            if (typeof sessionPanCode !== 'undefined' && sessionPanCode) {
-                performPaste(targetInput || document.activeElement, sessionPanCode);
+            if (isPanCode) {
+                performPaste(targetInput || document.activeElement, pasteCache.text);
                 showToast(t('toast_password_pasted'));
-                sessionPanCode = null;
+                await safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
+                unregisterVisibilityCleanup();
                 hideUI();
                 return;
             }

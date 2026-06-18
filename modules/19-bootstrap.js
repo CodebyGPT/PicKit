@@ -1,5 +1,31 @@
 // 模块 19: 启动引导 (Bootstrap)
 
+// 闪电粘贴条件式 visibilitychange 清理 (动态注册/注销)
+// 复制/剪切写入缓存时注销监听，粘贴重置时间戳时注册监听
+// 页面隐藏时写入过期缓存覆盖 (严禁主动删除，只允许单向覆盖)
+// 注意：这两个函数必须定义在全局作用域，因为 renderButton 中的 onclick 回调需要访问它们
+let _visibilityChangeHandler = null;
+
+function registerVisibilityCleanup() {
+    if (_visibilityChangeHandler) return;
+    _visibilityChangeHandler = async () => {
+        if (document.visibilityState === 'hidden') {
+            if (getConfig('enablePaste')) {
+                await safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
+            }
+            unregisterVisibilityCleanup();
+        }
+    };
+    document.addEventListener('visibilitychange', _visibilityChangeHandler, false);
+}
+
+function unregisterVisibilityCleanup() {
+    if (_visibilityChangeHandler) {
+        document.removeEventListener('visibilitychange', _visibilityChangeHandler, false);
+        _visibilityChangeHandler = null;
+    }
+}
+
 (function () {
     'use strict';
 
@@ -49,53 +75,6 @@
                 document.addEventListener('dragstart', handleLinkDragStart, false);
                 document.addEventListener('dragend', handleLinkDragEnd, false);
             }
-
-            // 7. 闪电粘贴条件式 visibilitychange 清理 (动态注册/注销)
-            // 复制/剪切写入缓存时注销监听，粘贴重置时间戳时注册监听
-            // 页面隐藏时写入过期缓存覆盖 (严禁主动删除，只允许单向覆盖)
-            let _visibilityChangeHandler = null;
-
-            function registerVisibilityCleanup() {
-                if (_visibilityChangeHandler) return;
-                _visibilityChangeHandler = async () => {
-                    if (document.visibilityState === 'hidden') {
-                        if (getConfig('enablePaste')) {
-                            await safeSetValue('smart_paste_cache', { text: '', timestamp: 0 });
-                        }
-                        unregisterVisibilityCleanup();
-                    }
-                };
-                document.addEventListener('visibilitychange', _visibilityChangeHandler, false);
-            }
-
-            function unregisterVisibilityCleanup() {
-                if (_visibilityChangeHandler) {
-                    document.removeEventListener('visibilitychange', _visibilityChangeHandler, false);
-                    _visibilityChangeHandler = null;
-                }
-            }
-
-            // 8. 检查网盘密码映射 (URL标识符精确匹配，O(1)查找，无交叉污染)
-            const checkPanCodeMap = async () => {
-                if (!getConfig('enablePaste')) return;
-
-                const map = cleanExpiredPanEntries(await safeGetValue('pan_code_map', {}));
-                if (Object.keys(map).length === 0) return;
-
-                const currentId = extractPanUrlId(window.location.href);
-                if (!currentId) return;
-
-                const entry = map[currentId];
-                if (entry) {
-                    sessionPanCode = entry.code;
-                    delete map[currentId];
-                    if (getConfig('enableToast')) {
-                        showToast(`${t('btn_paste') || 'Paste'} Code: ${sessionPanCode}`);
-                    }
-                    await safeSetValue('pan_code_map', map);
-                }
-            };
-            setTimeout(checkPanCodeMap, 300);
 
         } catch (e) {
             //console.error('Smart Copy 启动失败:', e);
