@@ -34,7 +34,6 @@ const modules = [
     '15-text-correct.js',  // 智能文本校正
     '16-blocker.js',       // 元素屏蔽器
     '17-festival.js',      // 烟花粒子特效
-    '18-input-recovery.js',// 码字防丢子系统
     '19-bootstrap.js',     // 启动引导 (IIFE 入口)
 ];
 

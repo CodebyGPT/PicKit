@@ -12,7 +12,7 @@ const DEFAULT_CONFIG = {
     enableCache: true,
     unlockHotkey: 'ControlLeft',
     enablePaste: true,
-    inputRecoveryMode: 'off', // 'off' | 'loose' (default, ignore tracking params) | 'strict'
+
     enableDragPreview: false,
     scrollRepaintMode: 'always',
     smartEngine: false,        // 是否启用智能分配

@@ -22,7 +22,6 @@ modules/
 ├── 15-text-correct.js    # 9 条中文排版规范校正
 ├── 16-blocker.js         # 元素拾取 + 屏蔽
 ├── 17-festival.js        # 春节/圣诞粒子特效
-├── 18-input-recovery.js  # 码字防丢缓存恢复
 ├── 19-bootstrap.js       # 启动引导 (IIFE 入口)
 └── build.js              # 构建脚本 (合并模块)
 ```

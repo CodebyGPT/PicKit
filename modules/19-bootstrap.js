@@ -60,18 +60,7 @@
             };
             document.addEventListener('visibilitychange', handleVisibilityChange, false);
 
-            // 8. 启动码字防丢监听
-            document.addEventListener('input', handleInputSave, true);
-            document.addEventListener('submit', handleFormSubmit, true);
-
-            if (document.readyState === 'complete') {
-                setTimeout(restoreInputData, 500);
-            } else {
-                window.addEventListener('load', () => setTimeout(restoreInputData, 500));
-            }
-
-            // 9. 检查是否有来自网盘链接的密码交接
-            // 9. 检查网盘密码映射 (URL标识符精确匹配，O(1)查找，无交叉污染)
+            // 8. 检查网盘密码映射 (URL标识符精确匹配，O(1)查找，无交叉污染)
             const checkPanCodeMap = async () => {
                 if (!getConfig('enablePaste')) return;
 

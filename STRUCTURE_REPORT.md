@@ -116,14 +116,7 @@
 - `triggerSpringFestivalEffect()`: Canvas-free 粒子动画（20-40 个粒子、重力+摩擦力）
 - `getSpringFestivalToastText()`: 节日 Toast 文案
 
-### 19. 码字防丢子系统 (行 2972-3138)
-- `getRecoveryUrlKey()`: URL 规范化（off/loose/strict）
-- `getRecoverySelector()`: 元素唯一标识符生成
-- `handleInputSave()`: 500ms 防抖保存输入内容
-- `handleFormSubmit()`: 表单提交时清除缓存
-- `restoreInputData()`: 页面加载时恢复数据（原生 setter + 事件触发）
-
-### 20. 启动引导 (行 3140-3258)
+### 20. 启动引导
 - `main()`: 异步启动流程
   1. 加载配置
   2. 初始化默认搜索引擎
@@ -133,8 +126,7 @@
   6. 注册所有事件监听器
   7. 注册拖拽预览事件
   8. 注册页面隐藏清理闪电粘贴缓存（visibilitychange）
-  9. 启动码字防丢
-  10. 检查网盘密码交接
+  9. 检查网盘密码交接
 - `handleVisibilityChange()`: 页面隐藏（visibilityState === 'hidden'）时销毁 smart_paste_cache、sessionPanCode 和 pan_paste_handover
 
 ## 技术特点
@@ -167,7 +159,6 @@ main()
  │    ├── keydown/keyup → toggleUnlockMode / toggleEditMode
  │    └── wheel → Ctrl+滚轮拦截
  ├── [拖拽预览] → handleLinkDragStart/handleLinkDragEnd → openPreviewWindow
- ├── [码字防丢] → handleInputSave / handleFormSubmit / restoreInputData
  └── [网盘交接] → checkPanHandover
 ```
 
@@ -193,6 +184,6 @@ main()
 | `text-correct.js` | 智能文本校正 | ~160 |
 | `blocker.js` | 元素屏蔽器 | ~155 |
 | `festival.js` | 烟花粒子特效 | ~120 |
-| `input-recovery.js` | 码字防丢子系统 | ~165 |
+
 | `bootstrap.js` | 启动引导 | ~105 |
 | `build.js` | 构建脚本（合并模块） | ~30 |

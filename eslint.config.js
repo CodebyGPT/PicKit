@@ -77,8 +77,6 @@ const crossModuleGlobals = {
   handleContextMenu: "readonly",
   handleResizeOrScroll: "readonly",
   handleKeydownHideUI: "readonly",
-  handleInputSave: "readonly",
-  handleFormSubmit: "readonly",
   // 15-text-correct.js
   smartCorrectText: "readonly",
   handleTextCorrection: "readonly",
@@ -88,8 +86,7 @@ const crossModuleGlobals = {
   // 17-festival.js
   getSpringFestivalToastText: "readonly",
   triggerSpringFestivalEffect: "readonly",
-  // 18-input-recovery.js
-  restoreInputData: "readonly"
+
 };
 
 module.exports = [
