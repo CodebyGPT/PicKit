@@ -243,5 +243,45 @@ function getStyles() {
                 0 0 12px rgba(255,255,255,0.06),
                 0 8px 26px rgba(0,0,0,0.32);
         }
+        /* 图标包装器：作为角标定位锚点，尺寸与SVG一致 */
+        .sc-icon-wrap {
+            position: relative;
+            display: inline-flex;
+            width: 18px;
+            height: 18px;
+        }
+        /* 链接数量角标: 右下角对齐图标右下角，叠在图标上层 */
+        .sc-badge {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            color: inherit;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            pointer-events: none;
+            filter:
+                drop-shadow(0 0 1px rgba(255,255,255,0.98))
+                drop-shadow(0 0 2px rgba(255,255,255,0.9))
+                drop-shadow(0 0 3px rgba(255,255,255,0.75))
+                drop-shadow(0 0 5px rgba(255,255,255,0.55));
+        }
+        .sc-badge-key {
+            font-size: 0;
+            right: -1px;
+            bottom: -1px;
+        }
+        .sc-badge-key svg {
+            display: block;
+            stroke-width: 4;
+        }
+        .theme-dark-ui .sc-badge {
+            filter:
+                drop-shadow(0 0 1px rgba(0,0,0,0.98))
+                drop-shadow(0 0 2px rgba(0,0,0,0.9))
+                drop-shadow(0 0 3px rgba(0,0,0,0.75))
+                drop-shadow(0 0 5px rgba(0,0,0,0.55));
+        }
     `;
 }

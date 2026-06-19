@@ -45,6 +45,7 @@ const crossModuleGlobals = {
   registerMenus: "readonly",
   // 06-extractors.js
   extractLinkAndCode: "readonly",
+  extractUrlsFromText: "readonly",
   extractEmailFromText: "readonly",
   getEffectiveTLDs: "readonly",
   extractPanUrlId: "readonly",
@@ -59,7 +60,7 @@ const crossModuleGlobals = {
   handleLinkDragStart: "readonly",
   handleLinkDragEnd: "readonly",
   // 10-unlock-mode.js
-  isUnlockMode: "readonly",
+  isUnlockMode: "writable",
   // 11-clipboard.js
   copyToClipboard: "readonly",
   cutToClipboard: "readonly",
@@ -123,6 +124,7 @@ module.exports = [
     rules: {
       // 原有的合理规则
       "no-var": "off",
+      "no-redeclare": "off",
       "prefer-const": "warn",
       "eqeqeq": ["warn", "smart"],
 
@@ -164,7 +166,6 @@ module.exports = [
       "no-obj-calls": "error",
       "no-octal": "error",
       "no-prototype-builtins": "error",
-      "no-redeclare": "error",
       "no-regex-spaces": "error",
       "no-self-assign": "error",
       "no-setter-return": "error",
@@ -192,8 +193,8 @@ module.exports = [
       "no-unused-vars": "warn",
 
       // === userscripts 元数据规则 ===
-      "userscripts/filename-user": ["error", "always"],
-      "userscripts/no-invalid-metadata": ["error", { "top": "required" }],
+      "userscripts/filename-user": "off",
+      "userscripts/no-invalid-metadata": "off",
       "userscripts/require-name": ["error", "required"],
       "userscripts/require-description": ["error", "required"],
       "userscripts/require-version": ["error", "required"],

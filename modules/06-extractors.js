@@ -12,7 +12,7 @@ function getEffectiveTLDs() {
 // RFC 3986 URL安全字符检测 (unreserved + reserved)
 const isUrlSafeChar = (ch) => {
     const code = ch.charCodeAt(0);
-    return code < 128 && /^[a-zA-Z0-9._~:/?#\[\]@!$&'()*+,;=%\-]$/.test(ch);
+    return code < 128 && /^[a-zA-Z0-9._~:/?#[\]@!$&'()*+,;=%-]$/.test(ch);
 };
 
 const isChineseChar = (ch) => /[\u4e00-\u9fa5]/.test(ch);
@@ -148,7 +148,7 @@ function extractUrlsFromText(text) {
                     // 可能后面有参数，但扫描没抓到。保守跳过。
                 }
                 // 纯域名不做为链接 (如 "cloud.189.cn" alone)
-                if (!/[\/?#]/.test(url)) continue;
+                if (!/[/?#]/.test(url)) continue;
             }
         }
 

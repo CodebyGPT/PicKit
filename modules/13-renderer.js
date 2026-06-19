@@ -233,21 +233,30 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     const urlCount = linkData.urls.length;
                     const chainBtn = document.createElement('div');
                     chainBtn.className = 'sc-btn';
-                    chainBtn.style.position = 'relative';
-                    chainBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
 
-                    // 多链接时追加数量角标
-                    if (urlCount > 1) {
+                    // 图标包装器 (18x18, 作为角标的定位锚点)
+                    const iconWrap = document.createElement('span');
+                    iconWrap.className = 'sc-icon-wrap';
+                    iconWrap.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
+                    chainBtn.appendChild(iconWrap);
+
+                    // 角标：单链接+网盘提取码 → 钥匙图标；多链接 → 数字角标
+                    const isSingleLink = urlCount === 1;
+                    if (isChineseForLink && isSingleLink && linkData.password) {
                         const badge = document.createElement('span');
-                        badge.style.cssText = 'position:absolute;top:-6px;right:-8px;background:#FF4444;color:#fff;font-size:10px;font-weight:bold;border-radius:10px;padding:1px 5px;line-height:1.2;min-width:16px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
+                        badge.className = 'sc-badge sc-badge-key';
+                        badge.innerHTML = `<svg viewBox="0 0 48 48" width="10" height="10" stroke="currentColor" fill="none"><path d="M22.8682 24.2982C25.4105 26.7935 26.4138 30.4526 25.4971 33.8863C24.5805 37.32 21.8844 40.0019 18.4325 40.9137C14.9806 41.8256 11.3022 40.8276 8.79375 38.2986C5.02208 34.4141 5.07602 28.2394 8.91499 24.4206C12.754 20.6019 18.9613 20.5482 22.8664 24.3L22.8682 24.2982Z"/><path d="M23 24L40 7"/><path d="M30.3052 16.9001L35.7337 22.3001L42.0671 16.0001L36.6385 10.6001L30.3052 16.9001Z"/></svg>`;
+                        iconWrap.appendChild(badge);
+                    } else if (urlCount > 1) {
+                        const badge = document.createElement('span');
+                        badge.className = 'sc-badge';
                         badge.textContent = urlCount;
-                        chainBtn.appendChild(badge);
+                        iconWrap.appendChild(badge);
                     }
 
                     const titlePrefix = urlCount > 1 ? ('(' + urlCount + ') ') : '';
                     chainBtn.title = titlePrefix + t('btn_open_link');
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
-                    const isSingleLink = urlCount === 1;
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
                         // 单链接 + 中文模式: 提取码写入闪电粘贴缓存
