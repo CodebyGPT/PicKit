@@ -218,7 +218,13 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 container.appendChild(atBtn);
             } else {
                 // 2. 检测网址链接 (支持多链接)
-                const linkData = extractLinkAndCode(text);
+                // 中文模式下启用网盘提取码识别；非中文模式下仅提取纯URL
+                const curLangForLink = getConfig('language');
+                const isChineseForLink = curLangForLink === 'zh-CN' || (curLangForLink === 'auto' && navigator.language.startsWith('zh'));
+                const linkData = isChineseForLink ? extractLinkAndCode(text) : (() => {
+                    const urls = extractUrlsFromText(text);
+                    return urls.length > 0 ? { urls, password: null } : null;
+                })();
                 if (linkData && linkData.urls && linkData.urls.length > 0) {
                     const div = document.createElement('div');
                     div.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -244,8 +250,8 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     const isSingleLink = urlCount === 1;
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 单链接: 提取码写入闪电粘贴缓存 (延长22秒，总有效期30秒)
-                        if (isSingleLink && getConfig('enablePaste') && linkData.password) {
+                        // 单链接 + 中文模式: 提取码写入闪电粘贴缓存
+                        if (isSingleLink && isChineseForLink && getConfig('enablePaste') && linkData.password) {
                             await safeSetValue('smart_paste_cache', {
                                 text: linkData.password,
                                 timestamp: Date.now() + 22000,

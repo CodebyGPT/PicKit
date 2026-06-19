@@ -36,7 +36,7 @@ const SEARCH_ENGINES = {
     brave: { name: 'Brave', url: 'https://search.brave.com/search?q=%s' },
 };
 
-// [新增] 顶级域名白名单 (Top 100 TLDs)
+// 顶级域名白名单
 const TLD_SET = new Set([
     'com', 'cn', 'de', 'tk', 'uk', 'net', 'org', 'top', 'ru',
     'info', 'br', 'xyz', 'ga', 'nl', 'it', 'ws', 'ml', 'shop',

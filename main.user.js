@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name               Text_Selection_Toolbar-划词工具栏
-// @name:en            Text_Selection_Toolbar
+// @name               Text Selection Toolbar
+// @name:en            Text Selection Toolbar
 // @name:ru            Панель_выбора_текста
 // @name:zh-CN         划词工具栏
 // @namespace          https://github.com/CodebyGPT/Text_Selection_Toolbar
-// @version            2026.06.18
-// @description        Add a text selection toolbar to your browser.-为你的浏览器增加一个划词工具栏。
+// @version            2026.06.19
+// @description        Add a text selection toolbar to your browser.
 // @description:en     Add a text selection toolbar to your browser.
 // @description:ru     Добавьте панель инструментов для выделения текста в ваш браузер.
 // @description:zh-CN  为你的浏览器增加一个划词工具栏。
@@ -94,7 +94,7 @@ const SEARCH_ENGINES = {
     brave: { name: 'Brave', url: 'https://search.brave.com/search?q=%s' },
 };
 
-// [新增] 顶级域名白名单 (Top 100 TLDs)
+// 顶级域名白名单
 const TLD_SET = new Set([
     'com', 'cn', 'de', 'tk', 'uk', 'net', 'org', 'top', 'ru',
     'info', 'br', 'xyz', 'ga', 'nl', 'it', 'ws', 'ml', 'shop',
@@ -724,7 +724,7 @@ function registerMenus() {
         location.reload();
     });
 
-    // [新增] 拖拽预览开关
+    // 拖拽预览开关
     GM_registerMenuCommand(`${t('menu_drag_preview')}: ${getConfig('enableDragPreview') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enableDragPreview', !getConfig('enableDragPreview'));
         location.reload();
@@ -987,7 +987,7 @@ function extractAllCodesWithPositions(rawText) {
     return results;
 }
 
-// [重写] 智能链接与密码提取器 (支持多链接 + 每URL独立密码)
+// 智能链接与密码提取器
 function extractLinkAndCode(rawText) {
     if (!rawText) return null;
 
@@ -1027,7 +1027,7 @@ function extractLinkAndCode(rawText) {
     };
 }
 
-// [新增] 邮箱地址提取器
+// 邮箱地址提取器
 function extractEmailFromText(rawText) {
     if (!rawText || !rawText.includes('@')) return null;
     const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
@@ -2112,7 +2112,13 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 container.appendChild(atBtn);
             } else {
                 // 2. 检测网址链接 (支持多链接)
-                const linkData = extractLinkAndCode(text);
+                // 中文模式下启用网盘提取码识别；非中文模式下仅提取纯URL
+                const curLangForLink = getConfig('language');
+                const isChineseForLink = curLangForLink === 'zh-CN' || (curLangForLink === 'auto' && navigator.language.startsWith('zh'));
+                const linkData = isChineseForLink ? extractLinkAndCode(text) : (() => {
+                    const urls = extractUrlsFromText(text);
+                    return urls.length > 0 ? { urls, password: null } : null;
+                })();
                 if (linkData && linkData.urls && linkData.urls.length > 0) {
                     const div = document.createElement('div');
                     div.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -2138,8 +2144,8 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     const isSingleLink = urlCount === 1;
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 单链接: 提取码写入闪电粘贴缓存 (延长22秒，总有效期30秒)
-                        if (isSingleLink && getConfig('enablePaste') && linkData.password) {
+                        // 单链接 + 中文模式: 提取码写入闪电粘贴缓存
+                        if (isSingleLink && isChineseForLink && getConfig('enablePaste') && linkData.password) {
                             await safeSetValue('smart_paste_cache', {
                                 text: linkData.password,
                                 timestamp: Date.now() + 22000,
@@ -2380,7 +2386,9 @@ function handleSelectionMouseUp(e) {
         if (getConfig('enablePaste')) {
             cache = await safeGetValue('smart_paste_cache', null);
         }
-        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000) && cache.type !== 'pan_code';
+        const curLang = getConfig('language');
+        const isChineseEnv = curLang === 'zh-CN' || (curLang === 'auto' && navigator.language.startsWith('zh'));
+        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000) && !(isChineseEnv && cache.type === 'pan_code');
         const target = document.activeElement;
         const isInput = target && (
             (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) ||
@@ -2466,8 +2474,10 @@ function handleInputPasteMouseUp(e) {
         if (!cache || !cache.text) return;
         if (Date.now() - cache.timestamp > 8000) return;
 
-        // 网盘提取码缓存：强制单粘贴按钮（钥匙图标）
-        if (cache.type === 'pan_code') {
+        // 网盘提取码缓存（仅中文模式）：强制单粘贴按钮（钥匙图标）
+        const curLang = getConfig('language');
+        const isChineseEnv = curLang === 'zh-CN' || (curLang === 'auto' && navigator.language.startsWith('zh'));
+        if (isChineseEnv && cache.type === 'pan_code') {
             initContainer();
             const rect = target.getBoundingClientRect();
             renderButton(rect, e.clientX, e.clientY, cache.text, '', 'paste', target, false, cache);

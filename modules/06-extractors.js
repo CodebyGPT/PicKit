@@ -198,7 +198,7 @@ function extractAllCodesWithPositions(rawText) {
     return results;
 }
 
-// [重写] 智能链接与密码提取器 (支持多链接 + 每URL独立密码)
+// 智能链接与密码提取器
 function extractLinkAndCode(rawText) {
     if (!rawText) return null;
 
@@ -238,7 +238,7 @@ function extractLinkAndCode(rawText) {
     };
 }
 
-// [新增] 邮箱地址提取器
+// 邮箱地址提取器
 function extractEmailFromText(rawText) {
     if (!rawText || !rawText.includes('@')) return null;
     const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;

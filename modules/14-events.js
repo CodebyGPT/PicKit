@@ -41,7 +41,9 @@ function handleSelectionMouseUp(e) {
         if (getConfig('enablePaste')) {
             cache = await safeGetValue('smart_paste_cache', null);
         }
-        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000) && cache.type !== 'pan_code';
+        const curLang = getConfig('language');
+        const isChineseEnv = curLang === 'zh-CN' || (curLang === 'auto' && navigator.language.startsWith('zh'));
+        const cacheValid = cache && cache.text && (Date.now() - cache.timestamp < 8000) && !(isChineseEnv && cache.type === 'pan_code');
         const target = document.activeElement;
         const isInput = target && (
             (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) ||
@@ -127,8 +129,10 @@ function handleInputPasteMouseUp(e) {
         if (!cache || !cache.text) return;
         if (Date.now() - cache.timestamp > 8000) return;
 
-        // 网盘提取码缓存：强制单粘贴按钮（钥匙图标）
-        if (cache.type === 'pan_code') {
+        // 网盘提取码缓存（仅中文模式）：强制单粘贴按钮（钥匙图标）
+        const curLang = getConfig('language');
+        const isChineseEnv = curLang === 'zh-CN' || (curLang === 'auto' && navigator.language.startsWith('zh'));
+        if (isChineseEnv && cache.type === 'pan_code') {
             initContainer();
             const rect = target.getBoundingClientRect();
             renderButton(rect, e.clientX, e.clientY, cache.text, '', 'paste', target, false, cache);

@@ -182,7 +182,7 @@ function registerMenus() {
         location.reload();
     });
 
-    // [新增] 拖拽预览开关
+    // 拖拽预览开关
     GM_registerMenuCommand(`${t('menu_drag_preview')}: ${getConfig('enableDragPreview') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enableDragPreview', !getConfig('enableDragPreview'));
         location.reload();
