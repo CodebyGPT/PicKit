@@ -34,14 +34,14 @@ It is recommended to install from [👉**Greasy Fork**👈](https://greasyfork.o
 
 ## Implemented Features
 
-| Feature | Details | Changelog |
-| :------ | :------ | :-------: |
-| 🖱️ Text Selection | Shows quick copy and search toolbar on text selection. If the text contains hyperlinks, shows an Open Link (new tab) button. For common cloud drive links with access passwords and "Lightning Paste" enabled, the password can be quickly pasted when clicking an input field on the target page. | 2025.12.12 - Launched; 2026.1.5 - Added UI repaint settings; 2026.1.19 - Added smart search engine allocation |
-| ⌨️ Inline Selection | Shows quick copy and cut buttons in input fields. In Chinese environments, if built-in rules match (e.g., missing spaces between CJK and Latin characters not enclosed in quotes), shows a correction button. | 2025.12.12 - Launched |
-| ⚡ Lightning Paste | After copying, clicking any input field on any tab shows a paste button directly. | 2025.12.12 - Launched |
-| 🔓 Unlock Mode | Hold the hotkey (default: Left Ctrl) to temporarily remove JS/CSS restrictions on selection, copying, Ctrl+C, etc. Reveals masked passwords in plain text, enables selection of truncated text. Releasing the hotkey restores everything. | 2025.12.12 - Launched |
-| 🔗 Drag Preview | Drag any hyperlink to open a small preview window. | 2025.12.12 - Launched |
-| 🚫 Block Native Toolbar | Block annoying built-in text selection toolbars on websites. | 2025.12.12 - Launched |
+| Feature | Details |
+| :------ | :------ |
+| 🖱️ Text Selection | Shows quick copy and search toolbar on text selection. If the text contains hyperlinks, shows an Open Link (new tab) button. For common cloud drive links with access passwords and "Lightning Paste" enabled, the password can be quickly pasted when clicking an input field on the target page. |
+| ⌨️ Inline Selection | Shows quick copy and cut buttons in input fields. In Chinese environments, if built-in rules match (e.g., missing spaces between CJK and Latin characters not enclosed in quotes), shows a correction button. |
+| ⚡ Lightning Paste | After copying, clicking any input field on any tab shows a paste button directly. |
+| 🔓 Unlock Mode | Hold the hotkey (default: Left Ctrl) to temporarily remove JS/CSS restrictions on selection, copying, Ctrl+C, etc. Reveals masked passwords in plain text, enables selection of truncated text. Releasing the hotkey restores everything. |
+| 🔗 Drag Preview | Drag any hyperlink to open a small preview window. |
+| 🚫 Block Native Toolbar | Block annoying built-in text selection toolbars on websites. |
 
 ## Language
 
