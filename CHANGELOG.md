@@ -1,112 +1,112 @@
 # Changelog
 
-## 2026.06.18 — 闪电粘贴跨标签页存活优化
+## 2026.06.18 — Lightning Paste Cross-Tab Survival Optimization
 
-### 改进
-- **条件式 visibilitychange 清理**：复制/剪切产生的缓存不再受标签页切换影响，粘贴重置时间戳后才注册 visibilitychange 监听
-- **动态注册/注销**：`registerVisibilityCleanup()` / `unregisterVisibilityCleanup()` 按需控制监听器生命周期
-- **杜绝主动删除**：所有使缓存失效的路径改为写入过期缓存 `{ text: '', timestamp: 0 }` 覆盖，而非设 null，保持单向覆盖语义
+### Improvements
+- **Conditional visibilitychange cleanup**: Caches produced by copy/cut are no longer affected by tab switching; visibilitychange listener is only registered after paste resets the timestamp
+- **Dynamic register/unregister**: `registerVisibilityCleanup()` / `unregisterVisibilityCleanup()` control listener lifecycle on demand
+- **No active deletion**: All cache invalidation paths now write expired cache `{ text: '', timestamp: 0 }` as overwrite, never setting null, maintaining one-way overwrite semantics
 
-### 技术细节
-- `19-bootstrap.js`：拆除永久注册的 visibilitychange 监听器，改为暴露动态注册/注销函数
-- `13-renderer.js`：复制/剪切写入后调用 `unregisterVisibilityCleanup()`，粘贴重置时间戳后调用 `registerVisibilityCleanup()`
-- `14-events.js`：右键清除和 8 秒过期判定均写入过期缓存覆盖，不再主动设 null
-- 8 秒过期改为纯判定逻辑（不修改缓存），缓存本身保留直到被新复制/剪切覆盖
+### Technical Details
+- `19-bootstrap.js`: Removed permanently registered visibilitychange listener; exposed dynamic register/unregister functions instead
+- `13-renderer.js`: Copy/cut calls `unregisterVisibilityCleanup()` after write; paste timestamp reset calls `registerVisibilityCleanup()`
+- `14-events.js`: Both right-click clear and 8-second expiration checks write expired cache overwrite, never actively setting null
+- 8-second expiration changed to pure judgment logic (does not modify cache); cache is preserved until overwritten by a new copy/cut
 
-## 2026.06.18 — URL标识符精确匹配 + 锚点定位修复
+## 2026.06.18 — URL Identifier Exact Matching + Anchor Position Fix
 
-### 修复
-- **密码分配改用锚点位置**：`extractLinkAndCode()` 不再用 `indexOf(host)` 重搜，改用 `extractUrlsFromText()` 已计算的 `anchorStart` 原文位置，消除同域名 URL 位置偏移
-- **消费匹配改用 URL 标识符**：新增 `extractPanUrlId()` 函数，从每种网盘 URL 提取唯一标识符（百度 `/s/XXXXX`、天翼 `/t/XXXXX`、阿里 `/s/XXXXX` 等），消费时 O(1) 精确查找，消除同域名交叉污染
-- **跨重定向匹配**：`/s/XXXXX` 和 `/share/init?surl=XXXXX` 提取相同标识符，适应百度等网盘的 URL 跳转
+### Fixes
+- **Password assignment now uses anchor position**: `extractLinkAndCode()` no longer re-searches via `indexOf(host)`, uses `anchorStart` (original text position) calculated by `extractUrlsFromText()` — eliminates position offset for same-domain URLs
+- **Consumption matching now uses URL identifiers**: Added `extractPanUrlId()` function, extracts unique identifiers from each cloud drive URL (Baidu `/s/XXXXX`, Tianyi `/t/XXXXX`, Ali `/s/XXXXX`, etc.), enabling O(1) exact lookup on consumption, eliminating same-domain cross-contamination
+- **Cross-redirect matching**: `/s/XXXXX` and `/share/init?surl=XXXXX` extract the same identifier, adapting to URL redirects from Baidu and similar cloud drives
 
-### 技术细节
-- `pan_code_map` key 从完整 URL 改为 `extractPanUrlId()` 标识符
-- `extractUrlsFromText()` 返回对象新增 `anchorStart` 字段
-- `checkPanCodeMap` 从 O(n) 遍历 + 域名子串匹配改为 O(1) 标识符直接查找
-- 支持 lanzou、123pan、quark 等通用回退
+### Technical Details
+- `pan_code_map` key changed from full URL to `extractPanUrlId()` identifier
+- `extractUrlsFromText()` return object now includes `anchorStart` field
+- `checkPanCodeMap` changed from O(n) traversal + domain substring matching to O(1) identifier direct lookup
+- Supports lanzou, 123pan, quark, etc. as generic fallback
 
-## 2026.06.18 - 批量多链接独立密码缓存
+## 2026.06.18 — Batch Multi-Link Independent Password Cache
 
-### 新增功能
-- **每URL独立密码**：批量打开多个网盘链接时，每个链接携带各自的提取码，互不干扰
-- **`pan_code_map`**：以完整URL为key的密码映射表，替代单条 `pan_code_cache`，同域名不同链接各自隔离
-- **1小时过期自动清理**：未消费的密码条目在1小时后自动清除，防止储存污染
+### New Features
+- **Password per URL**: When opening multiple cloud drive links in batch, each link carries its own extraction code without interference
+- **`pan_code_map`**: Password mapping table keyed by full URL, replacing single `pan_code_cache` — isolates links under the same domain
+- **1-hour auto-expiry cleanup**: Unconsumed password entries are automatically cleared after 1 hour to prevent storage pollution
 
-### 修复
-- **密码长度放宽至3位**：`{4,8}` → `{3,8}`，修复 `hka` 等3位提取码无法识别的问题
-- **多链接密码分配**：`extractLinkAndCode()` 新增 `extractAllCodesWithPositions()` 阶段，按文本位置将每个密码分配给最近的URL
-- **URL前缀匹配消费**：`checkPanCodeMap()` 遍历所有条目，当前页URL包含存储URL时匹配，消费后删除该条目
+### Fixes
+- **Password length relaxed to 3 chars**: `{4,8}` → `{3,8}`, fixing issues with 3-character codes like `hka`
+- **Multi-link password assignment**: `extractLinkAndCode()` added `extractAllCodesWithPositions()` stage, assigning each password to its nearest URL by text position
+- **URL prefix match on consumption**: `checkPanCodeMap()` iterates all entries; matches when current page URL contains the stored URL; deletes the entry after consumption
 
-### 技术细节
-- `pan_code_map` 存储格式：`{ "http://pan.baidu.com/s/xxx": { code: "hka", ts: ... } }`
-- 批量打开时一次性写入所有密码，toast显示 `已粘贴提取码 x3`
-- 每个标签页独立消费自己的密码条目，消费后即删除
+### Technical Details
+- `pan_code_map` storage format: `{ "http://pan.baidu.com/s/xxx": { code: "hka", ts: ... } }`
+- Batch open writes all passwords at once; toast shows `已粘贴提取码 x3`
+- Each tab independently consumes its own password entry; entry deleted after consumption
 
-## 2026.06.18 - 网盘密码缓存机制重构
+## 2026.06.18 — Cloud Drive Password Cache Restructure
 
-### 修复
-- **网盘密码缓存独立化**：`pan_paste_handover` 重命名为 `pan_code_cache`，不再与闪电粘贴缓存混用
-- **移除15秒过期限制**：网盘密码缓存无时间限制，直到用户手动粘贴清除或右键清除
-- **缓存优先级**：页面隐藏时不再清除网盘密码缓存（仅清除闪电粘贴缓存），网盘密码粘贴按钮优先于闪电粘贴
-- **Toast通知优化**：尊重 `enableToast` 设置，缓存密码和读取密码时根据用户配置显示提示
+### Fixes
+- **Independent cloud drive password cache**: `pan_paste_handover` renamed to `pan_code_cache`, no longer mixed with lightning paste cache
+- **Removed 15-second timeout**: Cloud drive password cache has no time limit, persists until manually pasted or right-click cleared
+- **Cache priority**: Page hidden no longer clears cloud drive password cache (only lightning paste cache); cloud drive paste button takes priority over lightning paste
+- **Toast notification optimization**: Respects `enableToast` setting; shows notification based on user config when caching and reading passwords
 
-### 缓存生命周期
-- **写入**：点击含提取码的链接按钮 → 写入 `pan_code_cache`
-- **消费**：目标页面输入框点击 → 粘贴后清除 `sessionPanCode`
-- **手动清除**：右键菜单 → 清除所有缓存
-- **注意**：页面隐藏(visibilitychange)不清除网盘密码缓存
+### Cache Lifecycle
+- **Write**: Click link button with extraction code → write to `pan_code_cache`
+- **Consume**: Click input field on target page → clear `sessionPanCode` after paste
+- **Manual clear**: Right-click menu → clear all caches
+- **Note**: Page hidden (visibilitychange) does not clear cloud drive password cache
 
-## 2026.06.17 - 划词功能重大改进
+## 2026.06.17 — Text Selection Major Improvements
 
-### 新增功能
-- **TLD域名白名单验证**：嵌入Top 100顶级域名列表，只有匹配白名单中的域名才识别为网址链接，避免误识别
-- **邮箱地址检测与@按钮**：选中包含`@`的文本时，显示@按钮，点击复制完整邮箱地址到剪贴板
-- **自定义TLD菜单选项**：通过脚本管理器菜单可添加自定义顶级域名，支持i18n多语言（中/英/俄）
+### New Features
+- **TLD Domain Whitelist Validation**: Embedded Top 100 TLD list; only matching domains are recognized as URL links, reducing false positives
+- **Email Detection & @ Button**: When selected text contains `@`, shows the @ button; click copies the full email address to clipboard
+- **Custom TLD Menu Option**: Custom TLDs can be added via script manager menu; supports i18n (Chinese/English/Russian)
 
-### 改进
-- **完全重写网盘访问码提取逻辑**：新的`extractLinkAndCode()`函数统一处理URL和密码提取
-  - 支持中文干扰词（如"删、去、这几个字"等）混合在URL中的情况
-  - 扩展密码检测关键词：提取码、密码、访问码、分享码、口令、code、pwd、key、pw、pass
-  - 支持括号格式提取：`(访问码:cpn0)` 和 `(:cpn0)` 和 `(cpn0)`
-  - 密码长度扩展至4-8位
-  - 增强URL末尾符号清洗
-  - 排除内网IP地址（10.x, 172.16-31.x, 192.168.x, 127.x, 0.x）
+### Improvements
+- **Complete rewrite of cloud drive access code extraction**: New `extractLinkAndCode()` function unified URL and password extraction
+  - Supports Chinese noise words (e.g., "删、去、这几个字" etc.) mixed within URLs
+  - Extended password detection keywords: 提取码, 密码, 访问码, 分享码, 口令, code, pwd, key, pw, pass
+  - Supports bracket format extraction: `(访问码:cpn0)` and `(:cpn0)` and `(cpn0)`
+  - Password length expanded to 4-8 characters
+  - Enhanced URL trailing character cleanup
+  - Excludes private IP addresses (10.x, 172.16-31.x, 192.168.x, 127.x, 0.x)
 
-### 技术细节
-- 新增`TLD_SET`集合包含100个顶级域名
-- 新增`getEffectiveTLDs()`合并内置和用户自定义TLD
-- 废弃旧的`extractLinkFromText()`和`extractPanCode()`及`PAN_CODE_REGEX`
-- @按钮使用来自at-sign.txt的SVG图标
-- 邮箱检测优先于链接检测（同时有@和URL时优先显示@按钮）
+### Technical Details
+- Added `TLD_SET` collection containing 100 TLDs
+- Added `getEffectiveTLDs()` to merge built-in and user-defined TLDs
+- Deprecated old `extractLinkFromText()` and `extractPanCode()` and `PAN_CODE_REGEX`
+- @ button uses SVG icon from at-sign.txt
+- Email detection takes priority over link detection (both @ and URL present → show @ button first)
 
-## 2026.06.18 - 网盘URL提取精确修复
+## 2026.06.18 — Cloud Drive URL Extraction Precision Fix
 
-### 修复
-- **修复URL路径过度吸收问题**：采用双重策略提取URL
-  - 策略A：在原文中逐字符扫描，遇中文立即设置边界，中文后的内容不再属于URL
-  - 策略B：若原文无锚点，则在清洗中文后的文本中搜索（处理中文嵌入URL内部的极端场景）
-  - 解决 `(访问码:cpn0)` 被误吸入URL的问题 — 检测中文前的`(`作为注释边界回退
-- **RFC 3986严格字符过滤**：仅允许URL安全字符（`a-zA-Z0-9._~:/?#[]@!$&'()*+,;=%\-`）进入路径
-- **非ASCII字符一律拒绝**：中文、emoji、全角符号等不会混入URL
+### Fixes
+- **Fixed URL path over-consumption**: Dual-strategy URL extraction
+  - Strategy A: Character-by-character scan in original text; Chinese character immediately sets boundary; content after Chinese is not part of URL
+  - Strategy B: If no anchor in original text, search in Chinese-cleaned text (handles extreme cases of Chinese embedded inside URLs)
+  - Fixed `(访问码:cpn0)` being mistakenly absorbed into URL — detects `(` before Chinese as comment boundary and backtracks
+- **RFC 3986 strict character filtering**: Only URL-safe characters (`a-zA-Z0-9._~:/?#[]@!$&'()*+,;=%\-`) allowed in path
+- **Non-ASCII characters rejected**: Chinese, emoji, full-width symbols, etc. will not be mixed into URLs
 
-### 测试验证
-- Case 1: `【天翼云盘：https://cloud.189.cn/t/3yqYreieuUFv(访问码:cpn0) 】` → URL正确提取为 `https://cloud.189.cn/t/3yqYreieuUFv`，密码 `cpn0`
-- Case 2: `5日iPhone 历代壁纸https://www.aliyundrive.com/s/rxUp6HNpwP8点击链接...` → URL正确提取为 `https://www.aliyundrive.com/s/rxUp6HNpwP8`
-- Case 3: `htt删p:/去/pan这.bai几du.co个m/s/hff字H57gb?...（提取码:5u8m）` → URL提取为 `http://pan.baidu.com/s/hffH57gb?=yhgfdxcc54`，密码 `5u8m`
+### Test Cases
+- Case 1: `【天翼云盘：https://cloud.189.cn/t/3yqYreieuUFv(访问码:cpn0) 】` → URL correctly extracted as `https://cloud.189.cn/t/3yqYreieuUFv`, password `cpn0`
+- Case 2: `5日iPhone 历代壁纸https://www.aliyundrive.com/s/rxUp6HNpwP8点击链接...` → URL correctly extracted as `https://www.aliyundrive.com/s/rxUp6HNpwP8`
+- Case 3: `htt删p:/去/pan这.bai几du.co个m/s/hff字H57gb?...（提取码:5u8m）` → URL extracted as `http://pan.baidu.com/s/hffH57gb?=yhgfdxcc54`, password `5u8m`
 
-## 2026.06.18 - 无协议URL + 多链接 + 密码提取增强
+## 2026.06.18 — Protocol-less URL + Multi-Link + Password Extraction Enhancement
 
-### 新增功能
-- **多链接检测与批量打开**：选中包含多个网址的文本时，显示链接数角标，点击一次打开全部链接（200ms间隔避免弹窗拦截）
-- **无协议URL检测**：支持 `cloud.189.cn/t/xxx` 这种无 `http://` 前缀的域名格式URL自动识别
+### New Features
+- **Multi-link detection and batch open**: Selected text containing multiple URLs shows link count badge; click to open all links (200ms interval to avoid popup blocking)
+- **Protocol-less URL detection**: Supports `cloud.189.cn/t/xxx` format (without `http://` prefix) for automatic domain recognition
 
-### 修复
-- **`码` 关键字密码提取**：新增 `/码\s*[:：\s]*([a-zA-Z0-9]{4,8})/` 模式，支持 `码 7515` 这种简写格式
-- **多锚点去重优化**：使用实际URL扫描结束位置进行锚点去重，避免多URL被错误合并
+### Fixes
+- **`码` keyword password extraction**: Added `/码\s*[:：\s]*([a-zA-Z0-9]{4,8})/` pattern, supporting shorthand formats like `码 7515`
+- **Multi-anchor dedup optimization**: Uses actual URL scan end position for anchor deduplication, preventing incorrect URL merging
 
-### 技术细节
-- `extractLinkAndCode()` 返回类型改为 `{ urls: [...], password }` 支持多URL
-- 新增 `extractUrlsFromText()` 函数统一处理协议锚点和域名锚点
-- 链接按钮在多链接时显示红色数量角标（如 "x3"）
-- 新增 `DOMAIN_ANCHOR_PATTERN` 正则匹配无协议域名
+### Technical Details
+- `extractLinkAndCode()` return type changed to `{ urls: [...], password }` supporting multi-URL
+- Added `extractUrlsFromText()` function to unify protocol anchors and domain anchors
+- Link button shows red number badge in multi-link mode (e.g., "x3")
+- Added `DOMAIN_ANCHOR_PATTERN` regex for protocol-less domain matching

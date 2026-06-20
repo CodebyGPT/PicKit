@@ -1,4 +1,7 @@
 # <img src="https://api.iconify.design/material-symbols:touch-triple.svg" width="32"> Text Selection Toolbar - 划词工具栏
+
+> [🇨🇳 中文版](README.md) | [🇬🇧 English](readme_en.md)
+
 ![GitHub License](https://img.shields.io/github/license/CodebyGPT/Text_Selection_Toolbar)
 ![GitHub Repo stars](https://img.shields.io/github/stars/CodebyGPT/Text_Selection_Toolbar)
 ![Greasy Fork Downloads](https://img.shields.io/greasyfork/dt/558720)
