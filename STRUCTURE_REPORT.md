@@ -1,148 +1,146 @@
-# main.user.js 项目结构分析报告
+# main.user.js Project Structure Analysis Report
 
-## 概述
+## Overview
 
-- **文件名**: `main.user.js`
-- **总行数**: 3246 行
-- **脚本名称**: Text_Selection_Toolbar（划词工具栏）
-- **版本**: 2026.03.05
-- **许可**: GPL-3.0
-- **运行时机**: `document-start`
-- **注入方式**: `content`（直接注入页面）
+- **Filename**: `main.user.js`
+- **Total Lines**: 3246 lines
+- **Script Name**: Text Selection Toolbar (划词工具栏)
+- **Version**: 2026.03.05
+- **License**: GPL-3.0
+- **Run At**: `document-start`
+- **Injection**: `content` (injected directly into the page)
 
-## 功能模块划分
+## Module Breakdown
 
-### 1. 元数据与许可声明 (行 1-47)
-- UserScript header（名称、版本、描述、权限、匹配规则等）
-- 多语言非原创内容声明
+### 1. Metadata & License Declaration (Lines 1-47)
+- UserScript header (name, version, description, permissions, match rules, etc.)
+- Multi-language non-original content disclaimer
 
-### 2. 异步兼容层 (行 49-76)
-- `safeGetValue` / `safeSetValue`: 兼容 GM.getValue（异步标准）和 GM_getValue（Tampermonkey 同步）
-- `safeOpenTab`: 兼容 GM.openInTab 和 GM_openInTab
+### 2. Async Compatibility Layer (Lines 49-76)
+- `safeGetValue` / `safeSetValue`: Compatible with both GM.getValue (async standard) and GM_getValue (Tampermonkey sync)
+- `safeOpenTab`: Compatible with both GM.openInTab and GM_openInTab
 
-### 3. 配置与状态管理 (行 78-152)
-- `DEFAULT_CONFIG`: 默认配置（语言、定位、偏移量、超时、按钮样式、配色、搜索引擎等 17 项）
-- `SCROLL_REPAINT_MODE`: 滚动重绘模式枚举
-- `SEARCH_ENGINES`: 搜索引擎注册表（Google, Baidu, Bing, Brave）
-- `PAN_DOMAINS` / `PAN_CODE_REGEX`: 网盘域名和密码提取规则
-- 运行时状态变量（缓存选区、UI定时器、ShadowDOM等）
-- `configCache` 内存配置缓存 + `getConfig`/`setConfig` 同步读/异步写
+### 3. Configuration & State Management (Lines 78-152)
+- `DEFAULT_CONFIG`: Default configuration (17 items: language, position mode, offset, timeout, button style, theme, search engine, etc.)
+- `SCROLL_REPAINT_MODE`: Scroll repaint mode enum
+- `SEARCH_ENGINES`: Search engine registry (Google, Baidu, Bing, Brave)
+- Runtime state variables (cached selection, UI timers, Shadow DOM, etc.)
+- `configCache` in-memory config cache + `getConfig`/`setConfig` sync-read/async-write
 
-### 4. 多语言支持系统 I18N (行 154-385)
-- 三种语言：`zh-CN`、`en`、`ru`
-- 包含菜单项、按钮、提示词、节日文案等全部 UI 文本
-- `t(key, ...args)`: 翻译函数，支持 auto 语言自动检测
+### 4. I18N Multi-language System (Lines 154-385)
+- Three languages: `zh-CN`, `en`, `ru`
+- Covers all UI text: menu items, buttons, prompts, festival messages, etc.
+- `t(key, ...args)`: Translation function with auto language detection
 
-### 5. 编辑模式与合规声明 (行 387-536)
-- `isEditMode` / `hasEditSessionStarted` 状态
-- `ensureComplianceBanner()`: 使用 Canvas 防篡改文本 + MutationObserver 自修复
-- `toggleEditMode(enable)`: 切换 `document.designMode`
+### 5. Edit Mode & Compliance Banner (Lines 387-536)
+- `isEditMode` / `hasEditSessionStarted` state
+- `ensureComplianceBanner()`: Canvas anti-tampering text + MutationObserver self-repair
+- `toggleEditMode(enable)`: Toggle `document.designMode`
 
-### 6. 菜单系统 (行 538-768)
-- `initConfiguration()`: 并行加载所有配置项
-- `initDefaultSearchEngine()`: 时区检测自动设置默认搜索引擎
-- `registerMenus()`: 注册约 18 个 GM_registerMenuCommand（语言、位置、偏移、超时、样式、配色、搜索引擎、智能搜索引擎、备用引擎、缓存、Toast、快捷键、闪电粘贴、拖拽预览、删除按钮、屏蔽元素、编辑模式、重置）
+### 6. Menu System (Lines 538-768)
+- `initConfiguration()`: Parallel load all config items
+- `initDefaultSearchEngine()`: Timezone-based auto-set default search engine
+- `registerMenus()`: Registers ~18 `GM_registerMenuCommand` entries (language, position, offset, timeout, style, theme, search engine, smart engine, fallback engine, cache, toast, hotkey, lightning paste, drag preview, delete button, blocker, edit mode, reset)
 
-### 7. 链接与密码提取 (行 774-823)
-- `extractLinkFromText()`: 智能 URL 提取（清洗中文混淆、正则匹配、域名校验、私有 IP 过滤）
-- `extractPanCode()`: 网盘提取码正则提取
+### 7. Link & Password Extraction (Lines 774-823)
+- URL extraction: Chinese noise cleanup, regex matching, domain validation, private IP filtering
+- Cloud drive extraction code regex extraction
 
-### 8. 选区定位计算器 (行 826-909)
-- `getSmartSelectionState()`: 三级降级策略
-  - Level A: 智能 Rect（基于 selection 方向和垂直排版判定）
-  - Level B: 经典包围盒（getBoundingClientRect）
-  - Level C: 鼠标坐标兜底（构造虚拟 Rect）
+### 8. Selection Geometry Calculator (Lines 826-909)
+- `getSmartSelectionState()`: Three-tier fallback strategy
+  - Tier A: Smart Rect (direction-aware + vertical writing mode detection)
+  - Tier B: Classic bounding box (`getBoundingClientRect`)
+  - Tier C: Mouse position fallback (construct virtual Rect)
 
-### 9. Shadow DOM 容器与样式 (行 910-1193)
-- `initContainer()`: 创建/重建 Shadow DOM 主机（挂载到 `<html>` 而非 `<body>`，防 SPA 销毁）
-- `getStyles()`: 动态生成样式表（横排/竖排、浅色/深色、液态玻璃效果、分割线、Toast 样式）
+### 9. Shadow DOM Container & Styles (Lines 910-1193)
+- `initContainer()`: Create/rebuild Shadow DOM host (mounted on `<html>` not `<body>`, SPA-proof)
+- `getStyles()`: Dynamic stylesheet generation (row/column, light/dark, liquid glass effect, dividers, Toast styles)
 
-### 10. 拖拽链接预览 (行 1196-1294)
-- `handleLinkDragStart()` / `handleLinkDragEnd()`: 拖拽距离 > 30px 时打开预览窗口
-- `openPreviewWindow()`: 黄金比例窗口尺寸（屏幕 61.8%）
+### 10. Drag Link Preview (Lines 1196-1294)
+- `handleLinkDragStart()` / `handleLinkDragEnd()`: Opens preview window when drag distance > 30px
+- `openPreviewWindow()`: Golden ratio window size (61.8% of screen)
 
-### 11. 超级取词模式 (行 1296-1721)
-- `getUnlockCSS()`: 强制 text-selectable + 禁止拖拽 + 穿透遮罩层
-- `cleanInlineEvents()`: 清除内联事件（onselectstart, oncopy 等）
-- `toggleUnlockMode()`: 注入/移除 CSS 和事件拦截器
-- `handleExpandHover()`: 鼠标悬停自动展开截断文本（单行 ellipsis / 多行 line-clamp）
-- 键盘监听（keydown 开启，keyup 关闭）
-- `modifiedElements` 集合：追踪并恢复被修改的 input 属性
+### 11. Unlock Mode / Super Selection (Lines 1296-1721)
+- `getUnlockCSS()`: Force text-selectable + disable dragging + overlay piercing
+- `cleanInlineEvents()`: Remove inline event handlers (onselectstart, oncopy, etc.)
+- `toggleUnlockMode()`: Inject/remove CSS and event interceptors
+- `handleExpandHover()`: Auto-expand truncated text on hover (single-line ellipsis / multi-line line-clamp)
+- Keyboard listeners (keydown to activate, keyup to deactivate)
+- `modifiedElements` set: Tracks and restores modified input attributes
 
-### 12. 剪贴板与 Toast (行 1724-1769)
-- `copyToClipboard()`: 三级降级（ClipboardItem → writeText → GM_setClipboard）
-- `showToast()`: Shadow DOM 内 Toast 提示
+### 12. Clipboard & Toast (Lines 1724-1769)
+- `copyToClipboard()`: Three-tier fallback (ClipboardItem → writeText → GM_setClipboard)
+- `showToast()`: Toast notification inside Shadow DOM
 
-### 13. 背景亮度检测 (行 1770-1813)
-- `getBestContrastTheme()`: YIQ 公式计算背景亮度，返回 'theme-light-ui' 或 'theme-dark-ui'
+### 13. Background Brightness Detection (Lines 1770-1813)
+- `getBestContrastTheme()`: YIQ formula to calculate background brightness, returns 'theme-light-ui' or 'theme-dark-ui'
 
-### 14. 按钮渲染引擎 (行 1815-2246)
-- `renderButton()`: 核心 UI 渲染函数，支持三种模式：
-  - **编辑模式**: 删除、加粗、高亮按钮
-  - **默认模式**: 复制 + 剪切(输入区) + 删除(输入区) + 搜索(短文本) + 锁链(链接) + 校正(中文输入区) + 粘贴(三按钮模式)
-  - **粘贴模式**: 单按钮粘贴（网盘密码优先）
-- 位置计算逻辑：正向/反向选区、垂直排版、边缘检测
+### 14. Button Renderer (Lines 1815-2246)
+- `renderButton()`: Core UI rendering function, supports three modes:
+  - **Edit Mode**: Delete, Bold, Highlight buttons
+  - **Default Mode**: Copy + Cut(input) + Delete(input) + Search(short text) + Chain Button(links) + Correct(Chinese input) + Paste(three-button mode)
+  - **Paste Mode**: Single paste button (cloud drive code priority)
+- Position calculation: forward/backward selection, vertical writing mode, edge detection
 
-### 15. 事件处理系统 (行 2259-2690)
-- `handleSelectionMouseUp()`: 选区事件主入口（延迟 10ms 执行）
-- `handleGlobalMouseDown()`: 点击外部隐藏
-- `handleResizeOrScroll()`: 滚动/调整大小重绘（always/viewport/hide 三种策略）
-- `handleContextMenu()`: 右键清除缓存
-- `handleKeydownHideUI()`: 按键隐藏（超级取词模式除外）
-- `handleInputPasteMouseUp()`: 输入框粘贴入口（延迟 20ms）
+### 15. Event Handler System (Lines 2259-2690)
+- `handleSelectionMouseUp()`: Main selection event entry point (10ms delay)
+- `handleGlobalMouseDown()`: Hide UI on external click
+- `handleResizeOrScroll()`: Scroll/resize repaint (always/viewport/hide strategies)
+- `handleContextMenu()`: Clear cache on right-click
+- `handleKeydownHideUI()`: Keypress hide (except unlock mode)
+- `handleInputPasteMouseUp()`: Input paste entry point (20ms delay)
 
-### 16. 智能文本校正 (行 2389-2548)
-- `smartCorrectText()`: 9 条中文排版规范
-  - 规范 1: 中英之间加空格
-  - 规范 2: 中文与数字加空格（数学语境感知）
-  - 规范 3: 去标点前空格
-  - 规范 4: 数字+单位处理
-  - 规范 5: 中文句号去重
-  - 规范 6: 纯中文环境英文标点转中文
-  - 规范 7: 数字间中文冒号转英文
-  - 规范 8: 双引号配对修正
-  - 规范 9: 换行/删空判定
-- `handleTextCorrection()`: 执行校正（execCommand insertText 或降级粘贴）
-- `performPaste()`: 通用粘贴逻辑（execCommand → contentEditable/text 操作 → 原生 value setter）
+### 16. Smart Text Correction (Lines 2389-2548)
+- `smartCorrectText()`: 9 Chinese typography rules
+  - Rule 1: Add space between Chinese and English
+  - Rule 2: Add space between Chinese and numbers (math-context-aware)
+  - Rule 3: Remove space before punctuation
+  - Rule 4: Number + unit handling
+  - Rule 5: Deduplicate Chinese periods
+  - Rule 6: English punctuation → Chinese in pure Chinese environment
+  - Rule 7: Chinese colon → English colon between numbers
+  - Rule 8: Fix quote pairing
+  - Rule 9: Line break / whitespace removal
+- `handleTextCorrection()`: Execute correction (execCommand insertText or fallback paste)
+- `performPaste()`: Generic paste logic (execCommand → contentEditable/text → native value setter)
 
-### 17. 元素屏蔽器 (行 2692-2848)
-- `activateElementPicker()`: 红色高亮覆盖 + 点击选中屏蔽
-- `disablePicker()`: 退出拾取模式
-- `generateCssSelector()`: 生成最短唯一选择器
-- `saveBlockRule()` / `applySavedBlockingRules()`: 规则持久化
+### 17. Element Blocker (Lines 2692-2848)
+- `activateElementPicker()`: Red highlight overlay + click-to-block
+- `disablePicker()`: Exit picker mode
+- `generateCssSelector()`: Generate shortest unique CSS selector
+- `saveBlockRule()` / `applySavedBlockingRules()`: Rule persistence
 
-### 18. 烟花粒子特效 (行 2850-2971)
-- `getFestivalType()`: 农历/公历节日检测（春节/圣诞）
-- `triggerSpringFestivalEffect()`: Canvas-free 粒子动画（20-40 个粒子、重力+摩擦力）
-- `getSpringFestivalToastText()`: 节日 Toast 文案
+### 18. Fireworks Particle Effects (Lines 2850-2971)
+- `getFestivalType()`: Lunar/solar calendar festival detection (CNY/Christmas)
+- `triggerSpringFestivalEffect()`: Canvas-free particle animation (20-40 particles, gravity + friction)
+- `getSpringFestivalToastText()`: Festival toast message
 
-### 20. 启动引导
-- `main()`: 异步启动流程
-  1. 加载配置
-  2. 初始化默认搜索引擎
-  3. 注册菜单
-  4. 应用屏蔽规则
-  5. 注册 Ctrl+滚轮拦截
-  6. 注册所有事件监听器
-  7. 注册拖拽预览事件
-  8. 注册页面隐藏清理闪电粘贴缓存（visibilitychange）
-  9. 检查网盘密码交接
-- `handleVisibilityChange()`: 页面隐藏（visibilityState === 'hidden'）时销毁 smart_paste_cache、sessionPanCode 和 pan_paste_handover
+### 19. Bootstrap (Lines 2973+)
+- `main()`: Async startup sequence
+  1. Load configuration
+  2. Initialize default search engine
+  3. Register menus
+  4. Apply blocking rules
+  5. Register Ctrl+scroll interception
+  6. Register all event listeners
+  7. Register drag preview events
+  8. Register page-hide lightning paste cache cleanup (visibilitychange)
+  9. Check cloud drive password handover
 
-## 技术特点
+## Technical Features
 
-| 特性 | 实现方式 |
-|------|----------|
-| UI 隔离 | Shadow DOM（挂载到 documentElement） |
-| 样式注入 | 动态生成 CSS 字符串（液态玻璃效果） |
-| 配置存储 | GM_setValue/GM_getValue + 内存缓存 |
-| 选区定位 | 三级降级：智能Rect → 包围盒 → 鼠标坐标 |
-| 剪贴板 | 三级降级：ClipboardItem → writeText → GM_setClipboard |
-| 兼容性 | 异步/同步 GM API 兼容层 |
-| SPA 防护 | 容器重建 + 挂载到 `<html>` 防销毁 |
-| 合规声明 | Canvas 防篡改文本 + MutationObserver 自修复 |
+| Feature | Implementation |
+|---------|---------------|
+| UI Isolation | Shadow DOM (mounted on documentElement) |
+| Style Injection | Dynamic CSS string generation (liquid glass effect) |
+| Config Storage | GM_setValue/GM_getValue + memory cache |
+| Selection Positioning | Three-tier fallback: Smart Rect → Bounding Box → Mouse Position |
+| Clipboard | Three-tier fallback: ClipboardItem → writeText → GM_setClipboard |
+| Compatibility | Async/sync GM API compat layer |
+| SPA Protection | Container rebuild + mount on `<html>` |
+| Compliance Banner | Canvas anti-tampering text + MutationObserver self-repair |
 
-## 模块依赖关系
+## Module Dependency Graph
 
 ```
 main()
@@ -150,40 +148,38 @@ main()
  ├── initDefaultSearchEngine() → safeGetValue / safeSetValue
  ├── registerMenus() → GM_registerMenuCommand × N
  ├── applySavedBlockingRules() → configCache
- ├── [事件监听]
+ ├── [Event Listeners]
  │    ├── handleSelectionMouseUp → getSmartSelectionState / initContainer / renderButton
  │    ├── handleInputPasteMouseUp → renderButton
  │    ├── handleResizeOrScroll → renderButton
  │    ├── handleContextMenu → hideUI / safeSetValue
- │    ├── handleVisibilityChange → safeSetValue (页面隐藏时清理闪电粘贴缓存)
  │    ├── keydown/keyup → toggleUnlockMode / toggleEditMode
- │    └── wheel → Ctrl+滚轮拦截
- ├── [拖拽预览] → handleLinkDragStart/handleLinkDragEnd → openPreviewWindow
- └── [网盘交接] → checkPanHandover
+ │    └── wheel → Ctrl+scroll interception
+ ├── [Drag Preview] → handleLinkDragStart/handleLinkDragEnd → openPreviewWindow
+ └── [Pan Code Handover] → checkPanHandover
 ```
 
-## 建议模块拆分方案
+## Proposed Module Split Plan
 
-| 模块文件 | 内容 | 行数估计 |
-|----------|------|----------|
-| `header.js` | UserScript 元数据 + 许可声明 | ~50 |
-| `compat.js` | GM API 兼容层 | ~30 |
-| `config.js` | 配置管理 + 状态 + 常量 | ~80 |
-| `i18n.js` | 多语言系统 | ~230 |
-| `compliance.js` | 编辑模式 + 合规声明 | ~150 |
-| `menu.js` | GM 菜单系统 | ~230 |
-| `extractors.js` | 链接提取 + 网盘密码提取 | ~50 |
-| `selection.js` | 选区定位计算器 | ~85 |
-| `shadow-dom.js` | Shadow DOM 容器 + 样式 | ~285 |
-| `drag-preview.js` | 拖拽链接预览 | ~100 |
-| `unlock-mode.js` | 超级取词模式 | ~425 |
-| `clipboard.js` | 剪贴板操作 + Toast | ~50 |
-| `theme.js` | 背景亮度检测 | ~45 |
-| `renderer.js` | 按钮渲染引擎 | ~430 |
-| `events.js` | 事件处理系统 | ~70 |
-| `text-correct.js` | 智能文本校正 | ~160 |
-| `blocker.js` | 元素屏蔽器 | ~155 |
-| `festival.js` | 烟花粒子特效 | ~120 |
-
-| `bootstrap.js` | 启动引导 | ~105 |
-| `build.js` | 构建脚本（合并模块） | ~30 |
+| Module File | Content | Est. Lines |
+|---|---|---|
+| `header.js` | UserScript metadata + license | ~50 |
+| `compat.js` | GM API compat layer | ~30 |
+| `config.js` | Config management + state + constants | ~80 |
+| `i18n.js` | Multi-language system | ~230 |
+| `compliance.js` | Edit mode + compliance banner | ~150 |
+| `menu.js` | GM menu system | ~230 |
+| `extractors.js` | Link extraction + cloud drive password extraction | ~50 |
+| `selection.js` | Selection geometry calculator | ~85 |
+| `shadow-dom.js` | Shadow DOM container + styles | ~285 |
+| `drag-preview.js` | Drag link preview | ~100 |
+| `unlock-mode.js` | Super selection mode | ~425 |
+| `clipboard.js` | Clipboard ops + Toast | ~50 |
+| `theme.js` | Background brightness detection | ~45 |
+| `renderer.js` | Button renderer | ~430 |
+| `events.js` | Event handler system | ~70 |
+| `text-correct.js` | Smart text correction | ~160 |
+| `blocker.js` | Element blocker | ~155 |
+| `festival.js` | Fireworks particle effects | ~120 |
+| `bootstrap.js` | Bootstrap | ~105 |
+| `build.js` | Build script (concatenate modules) | ~30 |

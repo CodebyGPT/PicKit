@@ -1,56 +1,56 @@
-# Text Selection Toolbar - 模块化开发
+# Text Selection Toolbar - Modular Development
 
-## 目录结构
+## Directory Structure
 
 ```
 modules/
-├── 00-header.js          # UserScript 元数据 + 多语言声明
-├── 01-compat.js          # GM API 异步兼容层
-├── 02-config.js          # 配置常量 + 状态管理
-├── 03-i18n.js            # 三语言 I18N 系统 (zh-CN/en/ru)
-├── 04-compliance.js      # 编辑模式 + Canvas 防篡改声明
-├── 05-menu.js            # GM 菜单注册系统
-├── 06-extractors.js      # URL 提取 + 网盘密码提取
-├── 07-selection.js       # 三级降级选区定位
-├── 08-shadow-dom.js      # Shadow DOM + 液态玻璃样式
-├── 09-drag-preview.js    # 链接拖拽预览窗口
-├── 10-unlock-mode.js     # 超级取词模式
-├── 11-clipboard.js       # 剪贴板 + Toast
-├── 12-theme.js           # 背景亮度自适应主题
-├── 13-renderer.js        # 按钮渲染引擎 (默认/编辑/粘贴三模式)
-├── 14-events.js          # 鼠标/键盘/滚动事件处理
-├── 15-text-correct.js    # 9 条中文排版规范校正
-├── 16-blocker.js         # 元素拾取 + 屏蔽
-├── 17-festival.js        # 春节/圣诞粒子特效
-├── 19-bootstrap.js       # 启动引导 (IIFE 入口)
-└── build.js              # 构建脚本 (合并模块)
+├── 00-header.js          # UserScript metadata + multi-language declaration
+├── 01-compat.js          # GM API async compatibility layer
+├── 02-config.js          # Config constants + state management
+├── 03-i18n.js            # Three-language I18N system (zh-CN/en/ru)
+├── 04-compliance.js      # Edit mode + Canvas anti-tampering banner
+├── 05-menu.js            # GM menu registration system
+├── 06-extractors.js      # URL extraction + cloud drive password extraction
+├── 07-selection.js       # Three-tier selection positioning
+├── 08-shadow-dom.js      # Shadow DOM + liquid glass styles
+├── 09-drag-preview.js    # Link drag preview window
+├── 10-unlock-mode.js     # Unlock mode / super selection
+├── 11-clipboard.js       # Clipboard operations + Toast
+├── 12-theme.js           # Background brightness adaptive theme
+├── 13-renderer.js        # Button renderer (default/edit/paste three modes)
+├── 14-events.js          # Mouse/keyboard/scroll event handling
+├── 15-text-correct.js    # 9 Chinese typography correction rules
+├── 16-blocker.js         # Element picker + blocker
+├── 17-festival.js        # CNY/Christmas particle effects
+├── 19-bootstrap.js       # Bootstrap (IIFE entry point)
+└── build.js              # Build script (concatenate modules)
 ```
 
-## 模块依赖关系
+## Module Dependency Graph
 
 ```
-01-compat.js (无依赖，最底层)
+01-compat.js (no dependencies, lowest level)
     ↓
-02-config.js (依赖 compat 的 safeGetValue/safeSetValue)
+02-config.js (depends on compat's safeGetValue/safeSetValue)
     ↓
-03-i18n.js  (依赖 config 的 getConfig)
+03-i18n.js  (depends on config's getConfig)
     ↓
-04-19*.js   (平行依赖 config + i18n + compat)
+04-19*.js   (parallel dependencies on config + i18n + compat)
     ↓
-19-bootstrap.js (依赖以上全部，IIFE 入口)
+19-bootstrap.js (depends on all above, IIFE entry)
 ```
 
-## 构建
+## Build
 
 ```bash
 node modules/build.js
 ```
 
-构建脚本按依赖顺序拼接所有模块，生成根目录下的 `main.user.js`。
+The build script concatenates all modules in dependency order to generate `main.user.js` in the project root directory.
 
-## 开发约定
+## Development Conventions
 
-1. 每个模块顶部的注释标明模块编号和功能
-2. 模块间通过全局变量通信（保持与原脚本兼容）
-3. 修改单个模块后运行构建脚本验证
-4. 新增模块需添加到 `build.js` 的模块列表中
+1. Each module has a comment header indicating the module number and function
+2. Modules communicate via global variables (maintaining compatibility with the original script)
+3. After modifying a single module, run the build script to verify
+4. New modules must be added to the module list in `build.js`
