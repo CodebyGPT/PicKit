@@ -1,31 +1,31 @@
-// 模块 05: GM 菜单系统 (GM Menu System)
+// Module 05: GM Menu System
 
-// 启动时一次性加载所有配置
+// Load all config at startup
 async function initConfiguration() {
     configCache['scrollRepaintMode'] = await safeGetValue('scrollRepaintMode', 'always');
     const keys = Object.keys(DEFAULT_CONFIG);
-    // 并行读取所有配置，提高速度
+    // Parallel reads for speed
     const values = await Promise.all(
         keys.map(key => safeGetValue(key, DEFAULT_CONFIG[key]))
     );
 
-    // 将读取到的值写入缓存
+    // Write read values to cache
     keys.forEach((key, index) => {
         configCache[key] = values[index];
     });
 
-    // 额外加载屏蔽规则 (blocked_elements)
+    // Additionally load block rules (blocked_elements)
     const blockedRules = await safeGetValue('blocked_elements', {});
     configCache['blocked_elements'] = blockedRules;
 
-    // 加载自定义TLD并合并到扩展集合
+    // Load custom TLDs and merge into extended set
     const customTLDs = configCache['customTLDs'] || [];
     if (customTLDs.length > 0) {
         customTLDs.forEach(t => TLD_SET_EXTENDED.add(t.toLowerCase().replace(/^\./, '')));
     }
 }
 
-// 首次运行时根据时区自动设置搜索引擎
+// Auto-set search engine based on timezone on first run
 async function initDefaultSearchEngine() {
     const hasInitialized = await safeGetValue('engine_initialized', false);
     if (!hasInitialized) {
@@ -40,7 +40,7 @@ async function initDefaultSearchEngine() {
 }
 
 function registerMenus() {
-    // 1. 语言设置 (Language)
+    // 1. Language setting
     const curLang = getConfig('language');
     const langLabel = curLang === 'auto' ? 'Auto' : (I18N[curLang] ? I18N[curLang].lang_name : curLang);
     GM_registerMenuCommand(`${t('menu_lang')}: ${langLabel}`, () => {
@@ -49,14 +49,14 @@ function registerMenus() {
         location.reload();
     });
 
-    // 2.1 定位模式
+    // 2.1 Position mode
     const posMode = getConfig('positionMode');
     GM_registerMenuCommand(`${t('menu_pos')}: ${posMode === 'endchar' ? t('val_endchar') : t('val_mouse')}`, () => {
         setConfig('positionMode', posMode === 'endchar' ? 'mouse' : 'endchar');
         location.reload();
     });
 
-    // 2.2 偏移量
+    // 2.2 Offset
     GM_registerMenuCommand(`${t('menu_offset')}: ${getConfig('offset')}px`, () => {
         const val = prompt(t('prompt_offset'), getConfig('offset'));
         if (val !== null && !isNaN(val)) {
@@ -65,7 +65,7 @@ function registerMenus() {
         }
     });
 
-    // 按钮重绘策略
+    // Button repaint strategy
     const scrollMode = getConfig('scrollRepaintMode');
     const modeText = {
         always: t('scroll_always'),
@@ -78,7 +78,7 @@ function registerMenus() {
         location.reload();
     });
 
-    // 2.3 停留时长
+    // 2.3 Timeout
     const timeout = getConfig('timeout');
     GM_registerMenuCommand(`${t('menu_timeout')}: ${timeout === 0 ? t('val_infinite') : timeout + 'ms'}`, () => {
         const val = prompt(t('prompt_timeout'), timeout);
@@ -88,28 +88,28 @@ function registerMenus() {
         }
     });
 
-    // 2.4 按钮样式
+    // 2.4 Button style
     const btnStyle = getConfig('buttonStyle');
     GM_registerMenuCommand(`${t('menu_style')}: ${btnStyle === 'row' ? t('val_row') : t('val_col')}`, () => {
         setConfig('buttonStyle', btnStyle === 'row' ? 'col' : 'row');
         location.reload();
     });
 
-    // 2.5 配色方案
+    // 2.5 Theme
     const forceWB = getConfig('forceWhiteBlack');
     GM_registerMenuCommand(`${t('menu_theme')}: ${forceWB ? t('val_light') : t('val_auto')}`, () => {
         setConfig('forceWhiteBlack', !forceWB);
         location.reload();
     });
 
-    // 删除按钮开关
+    // Delete button toggle
     const showDelete = getConfig('enableDeleteBtn');
     GM_registerMenuCommand(`${t('menu_delete_btn')}: ${showDelete ? t('val_show') : t('val_hide')}`, () => {
         setConfig('enableDeleteBtn', !showDelete);
         location.reload();
     });
 
-    // 2.6 搜索引擎
+    // 2.6 Search engine
     const currentEngineKey = getConfig('searchEngine');
     const engineName = SEARCH_ENGINES[currentEngineKey] ? SEARCH_ENGINES[currentEngineKey].name : 'Custom';
     GM_registerMenuCommand(`${t('menu_search')}: ${engineName}`, () => {
@@ -124,14 +124,14 @@ function registerMenus() {
         }
     });
 
-    // 智能分配开关
+    // Smart engine toggle
     const smartOn = getConfig('smartEngine');
     GM_registerMenuCommand(`${t('menu_smart_engine')}: ${smartOn ? t('val_smart_on') : t('val_smart_off')}`, () => {
         setConfig('smartEngine', !smartOn);
         location.reload();
     });
 
-    // 备用引擎选择（仅当开启时才显示）
+    // Fallback engine selection (only shown when smart engine is on)
     if (smartOn) {
         const fbKey = getConfig('fallbackEngine');
         const fbName = SEARCH_ENGINES[fbKey] ? SEARCH_ENGINES[fbKey].name : 'Custom';
@@ -148,19 +148,19 @@ function registerMenus() {
         });
     }
 
-    // 2.7 缓存功能
+    // 2.7 Cache
     GM_registerMenuCommand(`${t('menu_cache')}: ${getConfig('enableCache') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enableCache', !getConfig('enableCache'));
         location.reload();
     });
 
-    // 2.8 Toast通知
+    // 2.8 Toast notification
     GM_registerMenuCommand(`${t('menu_toast')}: ${getConfig('enableToast') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enableToast', !getConfig('enableToast'));
         location.reload();
     });
 
-    // 2.9 超级划词模式快捷键
+    // 2.9 Unlock mode hotkey
     const currentKey = getConfig('unlockHotkey');
     GM_registerMenuCommand(`${t('menu_hotkey')}: ${currentKey || t('val_disabled')}`, () => {
         const val = prompt(t('prompt_hotkey'));
@@ -176,19 +176,19 @@ function registerMenus() {
         location.reload();
     });
 
-    // 2.10 闪电粘贴
+    // 2.10 Lightning paste
     GM_registerMenuCommand(`${t('menu_paste')}: ${getConfig('enablePaste') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enablePaste', !getConfig('enablePaste'));
         location.reload();
     });
 
-    // 拖拽预览开关
+    // Drag preview toggle
     GM_registerMenuCommand(`${t('menu_drag_preview')}: ${getConfig('enableDragPreview') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enableDragPreview', !getConfig('enableDragPreview'));
         location.reload();
     });
 
-    // 2.12 屏蔽元素工具
+    // 2.12 Block element tool
     GM_registerMenuCommand(t('menu_block'), () => {
         activateElementPicker();
     });
@@ -209,12 +209,12 @@ function registerMenus() {
         }
     });
 
-    // 新增：添加自定义顶级域名
+    // Add custom TLD
     GM_registerMenuCommand(t('menu_tld_add'), () => {
         const val = prompt(t('prompt_tld_add'));
         if (!val) return;
-        let tld = val.trim().toLowerCase().replace(/^\./, ''); // 移除前导点
-        // 验证：只允许字母
+        let tld = val.trim().toLowerCase().replace(/^\./, ''); // Strip leading dot
+        // Validate: letters only
         if (!/^[a-z]{2,}$/.test(tld)) {
             alert(t('err_tld_invalid'));
             return;
@@ -230,12 +230,12 @@ function registerMenus() {
         showToast(t('toast_tld_added', tld));
     });
 
-    // 新增：编辑网页
+    // Edit page
     GM_registerMenuCommand(t('menu_edit'), () => {
         toggleEditMode(!isEditMode);
     });
 
-    // 2.13 重置
+    // 2.13 Reset
     GM_registerMenuCommand(t('menu_reset'), async () => {
         if (confirm(t('confirm_reset'))) {
             const keys = Object.keys(DEFAULT_CONFIG);

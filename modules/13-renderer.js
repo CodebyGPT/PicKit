@@ -1,15 +1,15 @@
-// 模块 13: 按钮渲染引擎 (Button Renderer)
+// Module 13: Button Renderer
 
-// 渲染按钮 (支持 Copy/Search 模式 和 Paste 模式)
+// Render buttons (supports Copy/Search mode and Paste mode)
 function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', targetInput = null, isEditable = false, pasteCache = null) {
-    // 清理旧的
+    // Clean up old button
     const oldBtn = shadowRoot.querySelector('.sc-container');
     if (oldBtn) oldBtn.remove();
 
     const container = document.createElement('div');
     container.className = 'sc-container';
 
-    // 智能背景色检测与主题应用
+    // Smart background color detection and theme application
     const forceWB = getConfig('forceWhiteBlack');
     if (forceWB) {
         container.classList.add('theme-light-ui');
@@ -20,9 +20,9 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
 
     const isCol = getConfig('buttonStyle') === 'col';
 
-    // 模式: 编辑模式 (Edit Mode)
+    // Mode: Edit mode
     if (isEditMode) {
-        // 1. 删除按钮
+        // 1. Delete button
         const delBtn = document.createElement('div');
         delBtn.className = 'sc-btn';
         delBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>`;
@@ -39,7 +39,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
         div1.className = isCol ? 'divider divider-h' : 'divider divider-v';
         container.appendChild(div1);
 
-        // 2. 加粗按钮
+        // 2. Bold button
         const boldBtn = document.createElement('div');
         boldBtn.className = 'sc-btn';
         boldBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></svg>`;
@@ -55,7 +55,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
         div2.className = isCol ? 'divider divider-h' : 'divider divider-v';
         container.appendChild(div2);
 
-        // 3. 标记按钮
+        // 3. Highlight button
         const highlightBtn = document.createElement('div');
         highlightBtn.className = 'sc-btn';
         highlightBtn.innerHTML = `<?xml version="1.0" encoding="UTF-8"?><svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 44L6 25H12V17H36V25H42V44H6Z" fill="none" stroke="#000000" stroke-width="4" stroke-linejoin="bevel"/><path d="M17 17V8L31 4V17" stroke="#000000" stroke-width="4" stroke-linecap="round" stroke-linejoin="bevel"/></svg>`;
@@ -70,9 +70,9 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
         };
         container.appendChild(highlightBtn);
     }
-    // 模式 A: 默认模式
+    // Mode A: Default mode
     else if (mode === 'default' || mode === PASTE_MODE_THREE_BTNS) {
-        // 1. 复制按钮
+        // 1. Copy button
         const copyBtn = document.createElement('div');
         copyBtn.className = 'sc-btn';
         copyBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
@@ -98,7 +98,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
 
         const isInInput = targetInput !== null;
 
-        // 2. 剪切按钮 (仅在编辑区显示)
+        // 2. Cut button (only show in editable fields)
         if (isInInput && !isEditMode) {
             const div = document.createElement('div');
             div.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -136,7 +136,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(cutBtn);
         }
 
-        // 删除按钮 (输入区中)
+        // Delete button (inside input fields)
         if (getConfig('enableDeleteBtn') && isInInput) {
             const div2 = document.createElement('div');
             div2.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -154,7 +154,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             };
             container.appendChild(delBtn);
         }
-        // 搜索按钮 (仅在非编辑区且字数较少时显示)
+        // Search button (only show outside input fields with short texts)
         else if (!isInInput && !isEditMode && text.trim().length <= 32) {
             const div = document.createElement('div');
             div.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -182,7 +182,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(searchBtn);
         }
 
-        // @按钮 / 锁链按钮逻辑
+        // @ button / chain button logic
         const activeEl = document.activeElement;
         const isUserEditing = activeEl && (
             (['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && !activeEl.readOnly) ||
@@ -190,7 +190,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             document.designMode === 'on'
         );
         if (!isUserEditing && !targetInput && mode !== PASTE_MODE_THREE_BTNS) {
-            // 1. 先检测邮箱地址 (优先级高于链接)
+            // 1. Check email first (higher priority than links)
             const emailAddr = extractEmailFromText(text);
             if (emailAddr) {
                 const div = document.createElement('div');
@@ -204,7 +204,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 atBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                 atBtn.onclick = async (e) => {
                     e.stopPropagation();
-                    // 复制完整邮箱到剪贴板
+                    // Copy full email to clipboard
                     try {
                         await navigator.clipboard.writeText(emailAddr);
                     } catch (_) {
@@ -217,8 +217,8 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 };
                 container.appendChild(atBtn);
             } else {
-                // 2. 检测网址链接 (支持多链接)
-                // 中文模式下启用网盘提取码识别；非中文模式下仅提取纯URL
+                // 2. Detect URLs (supports multiple links)
+                // Chinese mode enables cloud drive extraction code; non-Chinese mode extracts plain URLs only
                 const curLangForLink = getConfig('language');
                 const isChineseForLink = curLangForLink === 'zh-CN' || (curLangForLink === 'auto' && navigator.language.startsWith('zh'));
                 const linkData = isChineseForLink ? extractLinkAndCode(text) : (() => {
@@ -234,13 +234,13 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     const chainBtn = document.createElement('div');
                     chainBtn.className = 'sc-btn';
 
-                    // 图标包装器 (18x18, 作为角标的定位锚点)
+                    // Icon wrapper (18x18, serves as badge positioning anchor)
                     const iconWrap = document.createElement('span');
                     iconWrap.className = 'sc-icon-wrap';
                     iconWrap.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
                     chainBtn.appendChild(iconWrap);
 
-                    // 角标：单链接+网盘提取码 → 钥匙图标；多链接 → 数字角标
+                    // Badge: single link + extraction code → key icon; multiple links → number badge
                     const isSingleLink = urlCount === 1;
                     if (isChineseForLink && isSingleLink && linkData.password) {
                         const badge = document.createElement('span');
@@ -259,7 +259,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 单链接 + 中文模式: 提取码写入闪电粘贴缓存
+                        // Single link + Chinese mode: write extraction code to lightning paste cache
                         if (isSingleLink && isChineseForLink && getConfig('enablePaste') && linkData.password) {
                             await safeSetValue('smart_paste_cache', {
                                 text: linkData.password,
@@ -271,7 +271,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                                 showToast(t('toast_password_pasted'));
                             }
                         }
-                        // 批量打开链接 (间隔200ms避免弹窗拦截)
+                        // Batch open links (200ms interval to avoid popup blocking)
                         linkData.urls.forEach((u, i) => {
                             setTimeout(() => {
                                 safeOpenTab(u.url, { active: i === 0 });
@@ -284,7 +284,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             }
         }
 
-        // 检测是否需要显示"校正"按钮
+        // Check if "correct" button should be shown
         const curLang = getConfig('language');
         const isChineseEnv = curLang === 'zh-CN' || (curLang === 'auto' && navigator.language.startsWith('zh'));
         if (isChineseEnv && targetInput) {
@@ -297,7 +297,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 const correctBtn = document.createElement('div');
                 correctBtn.className = 'sc-btn';
                 correctBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M9 15l2 2 4-4"></path></svg>`;
-                correctBtn.title = "校正";
+                correctBtn.title = "Correct";
                 correctBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                 correctBtn.onclick = (e) => {
                     e.stopPropagation();
@@ -307,7 +307,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             }
         }
 
-        // 3. 闪电粘贴三按钮模式追加粘贴按钮
+        // 3. Append paste button in three-button lightning paste mode
         if (mode === PASTE_MODE_THREE_BTNS) {
             const div = document.createElement('div');
             div.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -322,7 +322,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 const cache = await safeGetValue('smart_paste_cache', null);
                 if (cache && cache.text) {
                     performPaste(document.activeElement, cache.text);
-                    // 粘贴后重置时间戳，允许同页面反复使用闪电粘贴
+                    // Reset timestamp after paste to allow repeated use on same page
                     await safeSetValue('smart_paste_cache', {
                         text: cache.text,
                         timestamp: Date.now()
@@ -334,13 +334,13 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(pasteBtn);
         }
     }
-    // 模式 B: 粘贴模式 (闪电粘贴 / 网盘提取码)
+    // Mode B: Paste mode (lightning paste / cloud drive extraction code)
     else if (mode === 'paste') {
         const isPanCode = pasteCache && pasteCache.type === 'pan_code';
         const pasteBtn = document.createElement('div');
         pasteBtn.className = 'sc-btn';
         if (isPanCode) {
-            // 钥匙图标 (网盘提取码专用)
+            // Key icon (for cloud drive extraction code)
             pasteBtn.innerHTML = '<svg viewBox="0 0 48 48" width="18" height="18" stroke="currentColor" stroke-width="3" fill="none"><path d="M22.8682 24.2982C25.4105 26.7935 26.4138 30.4526 25.4971 33.8863C24.5805 37.32 21.8844 40.0019 18.4325 40.9137C14.9806 41.8256 11.3022 40.8276 8.79375 38.2986C5.02208 34.4141 5.07602 28.2394 8.91499 24.4206C12.754 20.6019 18.9613 20.5482 22.8664 24.3L22.8682 24.2982Z"/><path d="M23 24L40 7"/><path d="M30.3052 16.9001L35.7337 22.3001L42.0671 16.0001L36.6385 10.6001L30.3052 16.9001Z"/></svg>';
             pasteBtn.title = t('btn_paste') + ' ' + (pasteCache.text || '');
         } else {
@@ -359,8 +359,8 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 return;
             }
             performPaste(targetInput, text);
-            // 粘贴后重置时间戳，允许同页面反复使用闪电粘贴
-            // 注意：这里缓存的是目标输入框内容而非剪贴板内容，仅在直接粘贴模式下重置
+            // Reset timestamp after paste to allow repeated use on same page
+            // Note: caching target input content here, not clipboard content; reset only in direct paste mode
             const existingCache = await safeGetValue('smart_paste_cache', null);
             if (existingCache && existingCache.text) {
                 await safeSetValue('smart_paste_cache', {
@@ -379,7 +379,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
 
     shadowRoot.appendChild(container);
 
-    // 计算位置 (通用逻辑)
+    // Calculate position (common logic)
     container.style.left = '-9999px';
 
     requestAnimationFrame(() => {
@@ -430,7 +430,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             }
         }
 
-        // 边缘检测
+        // Edge detection
         const margin = 10;
         targetX = Math.max(margin, Math.min(targetX, viewportW - btnW - margin));
         targetY = Math.max(margin, Math.min(targetY, viewportH - btnH - margin));

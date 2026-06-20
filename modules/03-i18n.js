@@ -1,4 +1,4 @@
-// 模块 03: 多语言支持系统 (I18N System)
+// Module 03: I18N System
 
 const I18N = {
     'zh-CN': {

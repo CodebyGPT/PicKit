@@ -1,4 +1,4 @@
-// 模块 16: 元素屏蔽子系统 (Element Blocker Subsystem)
+// Module 16: Element Blocker Subsystem
 
 let pickerOverlay = null;
 let pickerHandler = null;
@@ -6,7 +6,7 @@ let pickerClickHandler = null;
 let pickerEscHandler = null;
 let pickerRightClickHandler = null;
 
-// 自动应用已保存的规则
+// Auto-apply saved blocking rules
 function applySavedBlockingRules() {
     const rules = configCache['blocked_elements'] || {};
     const domain = location.hostname;
@@ -16,13 +16,13 @@ function applySavedBlockingRules() {
     }
 }
 
-// 激活拾取模式
+// Activate picker mode
 function activateElementPicker() {
     if (pickerOverlay) disablePicker();
 
     showToast(t('picker_active'));
 
-    // 创建高亮遮罩
+    // Create highlight overlay
     pickerOverlay = document.createElement('div');
     pickerOverlay.style.all = 'initial';
     pickerOverlay.style.position = 'fixed';
@@ -84,7 +84,7 @@ function activateElementPicker() {
     document.addEventListener('keydown', pickerEscHandler, true);
 }
 
-// 退出拾取模式
+// Exit picker mode
 function disablePicker() {
     if (pickerOverlay) {
         pickerOverlay.remove();
@@ -97,7 +97,7 @@ function disablePicker() {
     pickerRightClickHandler = null;
 }
 
-// 生成尽可能短且唯一的 CSS 选择器
+// Generate the shortest possible unique CSS selector
 function generateCssSelector(el) {
     if (el.id) return '#' + CSS.escape(el.id);
 
@@ -120,7 +120,7 @@ function generateCssSelector(el) {
     return selector;
 }
 
-// 保存规则到 GM 存储
+// Save rule to GM storage
 function saveBlockRule(selector) {
     const rules = configCache['blocked_elements'] || {};
     const domain = location.hostname;

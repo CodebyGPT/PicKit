@@ -1,9 +1,9 @@
-// 模块 17: 烟花粒子特效 (Festival Particle Effects)
+// Module 17: Festival Particle Effects
 
-// 春节/圣诞 彩蛋逻辑判断
+// Chinese New Year / Christmas easter egg logic
 function getFestivalType() {
     const now = new Date();
-    // 1. 尝试检测农历 (Chinese Lunar)
+    // 1. Try to detect lunar calendar (Chinese Lunar)
     try {
         const formatter = new Intl.DateTimeFormat("zh-CN-u-ca-chinese", { month: "numeric", day: "numeric" });
         if (formatter.resolvedOptions().calendar === 'chinese') {
@@ -19,7 +19,7 @@ function getFestivalType() {
         }
     } catch (e) {}
 
-    // 2. 回退逻辑：公历 12月25日 圣诞
+    // 2. Fallback logic: December 25th Christmas
     if (now.getMonth() === 11 && now.getDate() === 25) {
         return 'XMAS';
     }
@@ -27,7 +27,7 @@ function getFestivalType() {
     return 'NONE';
 }
 
-// 触发烟花特效
+// Trigger fireworks effect
 function triggerSpringFestivalEffect(x, y, shadowRoot) {
     const festival = getFestivalType();
     if (festival === 'NONE') return;
@@ -101,7 +101,7 @@ function triggerSpringFestivalEffect(x, y, shadowRoot) {
     shadowRoot.appendChild(fragment);
 }
 
-// 获取 Toast 提示文案
+// Get toast copy text
 function getSpringFestivalToastText() {
     const festival = getFestivalType();
     if (festival === 'CNY') {

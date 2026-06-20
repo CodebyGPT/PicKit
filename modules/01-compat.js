@@ -1,5 +1,5 @@
-// 模块 01: 异步兼容层 (Async Compatibility Layer)
-// 优先使用 GM.getValue (标准异步)，降级使用 GM_getValue (Tampermonkey同步)
+// Module 01: Async Compatibility Layer
+// Prefer GM.getValue (standard async), fallback to GM_getValue (Tampermonkey sync)
 
 const safeGetValue = (key, def) => {
     if (typeof GM !== 'undefined' && GM.getValue) {
@@ -19,10 +19,10 @@ const safeSetValue = (key, val) => {
 
 const safeOpenTab = (url, options) => {
     if (typeof GM !== 'undefined' && GM.openInTab) {
-        // 现代异步标准 (GM.openInTab)
+        // Modern async standard (GM.openInTab)
         GM.openInTab(url, options);
     } else {
-        // 旧版同步标准 (GM_openInTab)
+        // Legacy sync standard (GM_openInTab)
         GM_openInTab(url, options);
     }
 };

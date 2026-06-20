@@ -1,10 +1,10 @@
-// 模块 02: 配置与状态管理 (Configuration & State)
+// Module 02: Configuration & State
 
 const DEFAULT_CONFIG = {
-    language: 'auto', // 'auto'（默认） | 'zh-CN' | 'en' | 'ru'
+    language: 'auto', // 'auto' (default) | 'zh-CN' | 'en' | 'ru'
     positionMode: 'endchar', // 'endchar' | 'mouse'
     offset: 12, // px
-    timeout: 2400, // ms, 0 = infinite
+    timeout: 2400, // ms, 0 = stays indefinitely
     buttonStyle: 'row', // 'row' (capsule) | 'col' (rounded rect)
     forceWhiteBlack: true, // true = force white bg/black text
     searchEngine: 'baidu', // key or custom url
@@ -15,19 +15,19 @@ const DEFAULT_CONFIG = {
 
     enableDragPreview: false,
     scrollRepaintMode: 'always',
-    smartEngine: false,        // 是否启用智能分配
-    fallbackEngine: 'bing',   // 不含中文时的备用引擎
-    enableDeleteBtn: true, // 是否显示删除按钮
-    customTLDs: [], // 用户自定义的顶级域名列表
+    smartEngine: false,        // whether to enable smart engine assignment
+    fallbackEngine: 'bing',   // fallback engine when text contains no Chinese
+    enableDeleteBtn: true, // whether to show delete button
+    customTLDs: [], // user-defined TLD list
 };
 
 const SCROLL_REPAINT_MODE = {
-    ALWAYS: 'always',      // 1. 始终重绘（默认）
-    VIEWPORT: 'viewport',  // 2. 锚点在视口内才重绘
-    HIDE: 'hide'           // 3. 滚动即隐藏，不重绘
+    ALWAYS: 'always',      // 1. Always repaint (default)
+    VIEWPORT: 'viewport',  // 2. Repaint only when anchor is within viewport
+    HIDE: 'hide'           // 3. Hide on scroll, never repaint
 };
 
-const PASTE_MODE_THREE_BTNS = 'copy-search-paste';   // 闪电粘贴三按钮模式标记
+const PASTE_MODE_THREE_BTNS = 'copy-search-paste';   // Lightning paste three-button mode marker
 
 const SEARCH_ENGINES = {
     google: { name: 'Google', url: 'https://www.google.com/search?q=%s' },
@@ -36,7 +36,7 @@ const SEARCH_ENGINES = {
     brave: { name: 'Brave', url: 'https://search.brave.com/search?q=%s' },
 };
 
-// 顶级域名白名单
+// Top-level domain whitelist
 const TLD_SET = new Set([
     'com', 'cn', 'de', 'tk', 'uk', 'net', 'org', 'top', 'ru',
     'info', 'br', 'xyz', 'ga', 'nl', 'it', 'ws', 'ml', 'shop',
@@ -51,9 +51,9 @@ const TLD_SET = new Set([
     'cyou', 'fi', 'tech', 'sk', 'today', 'gr', 'one', 'digital',
     'gov', 'edu'
 ]);
-const TLD_SET_EXTENDED = new Set(TLD_SET); // 可扩展副本，用于合并自定义TLD
+const TLD_SET_EXTENDED = new Set(TLD_SET); // Extendable copy, merged with custom TLDs
 
-// 运行时状态
+// Runtime state
 let cachedSelection = { text: '', html: '' };
 let uiTimer = null;
 let toastTimer = null;
@@ -62,16 +62,16 @@ let scrollTimeout = null;
 let shadowRoot = null;
 let hostElement = null;
 
-// 配置缓存对象 (初始化为默认值)
+// Config cache object (initialized to defaults)
 let configCache = { ...DEFAULT_CONFIG };
 
-// 新的同步读取 (直接读内存，速度最快，不阻塞UI)
+// Synchronous read (direct memory access, fastest, non-blocking)
 const getConfig = (key) => {
     return configCache[key];
 };
 
-// 新的异步写入 (更新内存 + 保存到存储)
+// Async write (update memory + persist to storage)
 const setConfig = async (key, val) => {
-    configCache[key] = val; // 立即更新内存，保证交互响应
-    await safeSetValue(key, val); // 异步写入持久化存储
+    configCache[key] = val; // Immediate memory update for responsive interaction
+    await safeSetValue(key, val); // Async persist to storage
 };

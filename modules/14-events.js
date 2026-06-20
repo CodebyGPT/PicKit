@@ -1,4 +1,4 @@
-// 模块 14: 事件处理系统 (Event Handlers)
+// Module 14: Event Handlers
 
 function handleSelectionMouseUp(e) {
     if (hostElement && e.composedPath().includes(hostElement)) return;
@@ -56,14 +56,14 @@ function handleSelectionMouseUp(e) {
 
 function handleGlobalMouseDown(e) {
     if (hostElement && e.composedPath().includes(hostElement)) {
-        // 点击了按钮内部，保持
+        // Clicked inside button, keep it
     } else {
         const btn = shadowRoot && shadowRoot.querySelector('.sc-container');
         if (btn) btn.classList.remove('visible');
     }
 }
 
-// 滚动与调整大小处理
+// Scroll and resize handler
 const handleResizeOrScroll = () => {
     if (!hostElement) return;
     const mode = getConfig('scrollRepaintMode');
@@ -117,19 +117,19 @@ function handleKeydownHideUI(e) {
     hideUI();
 }
 
-// 输入框粘贴鼠标抬起处理
+// Input paste mouseup handler
 function handleInputPasteMouseUp(e) {
     if (!getConfig('enablePaste')) return;
     const target = e.target;
     const isInput = (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) || target.isContentEditable;
     if (!isInput) return;
     setTimeout(async () => {
-        // 读取闪电粘贴缓存
+        // Read lightning paste cache
         const cache = await safeGetValue('smart_paste_cache', null);
         if (!cache || !cache.text) return;
         if (Date.now() - cache.timestamp > 8000) return;
 
-        // 网盘提取码缓存（仅中文模式）：强制单粘贴按钮（钥匙图标）
+        // Cloud drive extraction code cache (Chinese mode only): force single paste button (key icon)
         const curLang = getConfig('language');
         const isChineseEnv = curLang === 'zh-CN' || (curLang === 'auto' && navigator.language.startsWith('zh'));
         if (isChineseEnv && cache.type === 'pan_code') {
@@ -139,7 +139,7 @@ function handleInputPasteMouseUp(e) {
             return;
         }
 
-        // 普通闪电粘贴: 检查输入框内选区
+        // Regular lightning paste: check selection within input
         let selectedText = '';
         let hasSelection = false;
         if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {

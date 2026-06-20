@@ -1,20 +1,20 @@
-// 模块 11: 剪贴板操作与 Toast 通知 (Clipboard & Toast)
+// Module 11: Clipboard & Toast
 
-// 三级降级复制策略
+// Three-tier fallback copy strategy
 async function copyToClipboard(text, html) {
     try {
-        // 优先尝试构建 ClipboardItem 以保留样式 (如果不是纯文本)
+        // Prefer ClipboardItem to preserve formatting (unless plain text)
         if (html && typeof ClipboardItem !== 'undefined') {
             const htmlBlob = new Blob([html], { type: 'text/html' });
             const textBlob = new Blob([text], { type: 'text/plain' });
             const data = [new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })];
             await navigator.clipboard.write(data);
         } else {
-            // 回退到纯文本
+            // Fallback to plain text
             await navigator.clipboard.writeText(text);
         }
     } catch (e) {
-        // 降级使用 GM 特权 API_GM_setClipboard
+        // Fallback to privileged GM API GM_setClipboard
         if (typeof GM_setClipboard === 'function') {
             if (text) {
                 GM_setClipboard(text, 'text');
@@ -25,7 +25,7 @@ async function copyToClipboard(text, html) {
     }
 }
 
-// 显示 Toast (在 Shadow DOM 内)
+// Show toast (inside Shadow DOM)
 function showToast(msg) {
     if (!getConfig('enableToast')) return;
 

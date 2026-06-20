@@ -1,14 +1,14 @@
-// 模块 10: 超级取词模式 (Unlock Mode / Super Selection)
+// Module 10: Unlock Mode / Super Selection
 
 let isUnlockMode = false;
 let unlockStyleEl = null;
 let startPos = { x: 0, y: 0 };
-const modifiedElements = new Set(); //追踪受影响元素的集合
+const modifiedElements = new Set(); // Set of affected elements
 
-// 动态CSS：强制文本可选，屏蔽拖拽，屏蔽指针事件限制等
+// Dynamic CSS: force text selectable, block drag, disable pointer event restrictions, etc.
 function getUnlockCSS() {
     return `
-        /* --- 1. 全局强制可选 (分离 cursor 设置) --- */
+        /* --- 1. Global force selectable (separate cursor settings) --- */
         html, body, *:not([data-tm-policy="protected"]), [unselectable] {
             user-select: text !important;
             -webkit-user-select: text !important;
@@ -16,12 +16,12 @@ function getUnlockCSS() {
             -ms-user-select: text !important;
         }
 
-        /* 修复：html/body 保持 default cursor，防止全局污染 */
+        /* Fix: html/body keep default cursor to avoid global pollution */
         html, body {
             cursor: default !important;
         }
 
-        /* 修复：仅为实际文本元素设置 text cursor */
+        /* Fix: text cursor only for actual text elements */
         p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, pre, code,
         blockquote, article, section, main, aside, header, footer,
         nav, figcaption, label, time, mark, em, strong, i, b, u,
@@ -33,11 +33,11 @@ function getUnlockCSS() {
             cursor: text !important;
         }
 
-        /* 强制高亮颜色 */
+        /* Force highlight color */
         ::selection {background-color: #3390FF !important;color: #ffffff !important;text-shadow: none !important;}
         ::-moz-selection {background-color: #3390FF !important;color: #ffffff !important;text-shadow: none !important;}
 
-        /* 让链接看起来像普通文本，且禁止图片/链接被拖拽（干扰划词） */
+        /* Make links look like plain text, block image/link dragging (interferes with text selection) */
         a:not([data-tm-policy="protected"]),
         a *:not([data-tm-policy="protected"]),
         img:not([data-tm-policy="protected"]){
@@ -47,13 +47,13 @@ function getUnlockCSS() {
             text-decoration: none !important;
         }
 
-        /* 禁用常见的透明遮罩层交互，让鼠标穿透到下方文字 */
+        /* Disable interaction on common transparent overlays so clicks reach text below */
         div[style*="z-index"][style*="fixed"]:not([data-tm-policy="protected"]),
         div[style*="z-index"][style*="absolute"]:not([data-tm-policy="protected"]) {
             pointer-events: none !important;
         }
 
-        /* 修复：增强 pointer-events 恢复逻辑，覆盖更多容器类型 */
+        /* Fix: enhance pointer-events restoration logic, cover more container types */
         div:not([data-tm-policy="protected"]),
         article:not([data-tm-policy="protected"]),
         main:not([data-tm-policy="protected"]),
@@ -80,7 +80,7 @@ function getUnlockCSS() {
             pointer-events: auto !important;
         }
 
-        /* 针对被截断文本展开后的样式：隐藏滚动条但保留滚动功能 */
+        /* Style for expanded truncated text: hide scrollbar but keep scroll functionality */
         .tm-sc-expanded {
             scrollbar-width: none !important;
             -ms-overflow-style: none !important;
@@ -93,7 +93,7 @@ function getUnlockCSS() {
 
         a.absolute, a[style*="position: absolute"] { pointer-events: none !important; }
 
-        /* 保护标记优先级最高 */
+        /* Protected marker takes highest priority */
         [data-tm-policy="protected"][data-tm-policy="protected"][data-tm-policy="protected"],
         [data-tm-policy="protected"][data-tm-policy="protected"][data-tm-policy="protected"] * {
             user-select: none !important;
@@ -106,7 +106,7 @@ function getUnlockCSS() {
     `;
 }
 
-// 检查是否为受保护元素
+// Check if element is protected
 function isProtectedElement(target) {
     return target && target.closest && target.closest('[data-tm-policy="protected"]');
 }
@@ -123,7 +123,7 @@ function handleCaptureSelectStart(e) {
     e.stopImmediatePropagation();
 }
 
-// 拦截点击事件：如果是拖拽操作或点击链接，则阻止
+// Intercept click events: prevent if drag operation or link click
 function handleCaptureClick(e) {
     if (!isUnlockMode) return;
     if (isProtectedElement(e.target)) {
@@ -152,7 +152,7 @@ function handleCaptureClick(e) {
     }
 }
 
-// 鼠标按下时按需处理当前元素
+// Process current element on mousedown as needed
 function handleCaptureMouseDown(e) {
     if (!isUnlockMode) return;
     if (isProtectedElement(e.target)) {
@@ -219,7 +219,7 @@ function cleanInlineEvents() {
     });
 }
 
-// 鼠标悬停时智能展开截断文本
+// Smart expand truncated text on mouse hover
 function handleExpandHover(e) {
     if (!isUnlockMode) return;
     let target = e.target;
@@ -246,7 +246,7 @@ function handleExpandHover(e) {
     }
 }
 
-// 退出模式时清理所有展开的元素
+// Clean up all expanded elements when exiting mode
 function cleanupExpandedElements() {
     const elements = document.querySelectorAll('.tm-sc-expanded');
     elements.forEach(el => {
@@ -263,7 +263,7 @@ function cleanupExpandedElements() {
     });
 }
 
-// 开启/关闭模式
+// Toggle unlock mode
 function toggleUnlockMode(active) {
     if (active === isUnlockMode) return;
     isUnlockMode = active;
@@ -323,7 +323,7 @@ function toggleUnlockMode(active) {
     }
 }
 
-// 键盘监听
+// Keyboard listener
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isEditMode) {
         toggleEditMode(false);

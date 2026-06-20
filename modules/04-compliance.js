@@ -1,38 +1,38 @@
-// 模块 04: 编辑模式与合规声明 (Edit Mode & Compliance Banner)
+// Module 04: Edit Mode & Compliance Banner
 
-// 编辑模式状态
+// Edit mode state
 let isEditMode = false;
-let hasEditSessionStarted = false; // 标记本次会话是否启用过编辑模式
+let hasEditSessionStarted = false; // Whether edit mode was ever enabled this session
 let complianceObserver = null;
 let currentBannerId = null;
 
-// 生成随机ID (防拦截)
+// Generate random ID (anti-tampering)
 const generateRandomId = () => 'tm-sc-' + Math.random().toString(36).slice(2, 9);
 
-// 创建/重建合规声明
+// Create / rebuild compliance banner
 function ensureComplianceBanner() {
-    if (!hasEditSessionStarted) return; // 如果从未启动过编辑模式，不生成
+    if (!hasEditSessionStarted) return; // Skip if edit mode was never enabled
 
-    // 1. 检查是否已存在
+    // 1. Check if banner already exists
     const existing = currentBannerId ? document.getElementById(currentBannerId) : null;
-    if (existing && existing.offsetParent !== null) return;// 如果存在且看起来正常（display不是none），则跳过
-    if (existing) existing.remove();// 如果存在但被隐藏了，或者不存在，则继续重建逻辑
+    if (existing && existing.offsetParent !== null) return;// Exists and visible (not display:none), skip
+    if (existing) existing.remove();// Exists but hidden, or missing — proceed to rebuild
 
-    // 2. 如果之前有Observer，先断开，避免重新插入时死循环
+    // 2. Disconnect previous Observer to avoid dead loop on re-insert
     if (complianceObserver) {
         complianceObserver.disconnect();
     }
 
-    // 3. 创建元素
+    // 3. Create element
     const scriptName = GM_info.script.name;
     const banner = document.createElement('div');
     currentBannerId = generateRandomId();
     banner.id = currentBannerId;
 
-    banner.setAttribute('data-tm-policy', 'protected'); // [关键] 添加特殊策略标记，用于 CSS 排除
+    banner.setAttribute('data-tm-policy', 'protected'); // Critical: mark for CSS exclusion
     banner.setAttribute('contenteditable', 'false');
 
-    // 样式：高层级、半透明白底、浅灰字、底部居中、禁止选中、穿透点击(防Picker)
+    // Styles: high z-index, semi-transparent white background, light gray text, bottom-centered, no selection, click-through (anti-picker)
     banner.style.cssText = `
         position: fixed !important;
         bottom: 50px !important;
@@ -43,7 +43,7 @@ function ensureComplianceBanner() {
         padding: 6px 14px !important;
         border-radius: 6px !important;
         box-shadow: 0 2px 10px rgba(0,0,0,0.08) !important;
-        pointer-events: none !important; /* 让鼠标穿透，既不影响浏览，也防止被拾取器选中 */
+        pointer-events: none !important; /* Click-through: avoids blocking page interaction and prevents picker selection */
         user-select: none !important;
         -webkit-user-select: none !important;
         display: flex !important;
@@ -56,26 +56,26 @@ function ensureComplianceBanner() {
         border: 1px solid rgba(0,0,0,0.05) !important;
     `;
 
-    // SVG 图标 (Info)
+    // SVG icon (Info)
     const iconContainer = document.createElement('div');
     iconContainer.style.cssText = 'display:flex;align-items:center;color:#888;pointer-events:none;';
     iconContainer.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
     banner.appendChild(iconContainer);
 
-    // 2. 文本 (使用 Canvas 绘制，防篡改)
+    // 2. Text (rendered on Canvas for anti-tampering)
     const textStr = t('disclaimer_text').replace('<SCRIPT_NAME>', scriptName);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const fontSize = 12;
     const fontFamily = 'sans-serif';
 
-    // 测量文本宽度
+    // Measure text width
     ctx.font = `${fontSize}px ${fontFamily}`;
     const metrics = ctx.measureText(textStr);
     const textWidth = Math.ceil(metrics.width);
-    const textHeight = Math.ceil(fontSize * 1.2); // 留一点行高
+    const textHeight = Math.ceil(fontSize * 1.2); // Some line height
 
-    // 设置 Canvas 尺寸 (考虑高分屏清晰度，使用 2x 缩放)
+    // Set canvas dimensions (2x scaling for HiDPI clarity)
     const dpr = window.devicePixelRatio || 1;
     canvas.width = textWidth * dpr;
     canvas.height = textHeight * dpr;
@@ -83,48 +83,48 @@ function ensureComplianceBanner() {
     canvas.style.height = `${textHeight}px`;
     canvas.style.pointerEvents = 'none';
 
-    // 绘制
+    // Draw
     ctx.scale(dpr, dpr);
     ctx.font = `${fontSize}px ${fontFamily}`;
     ctx.fillStyle = '#999';
     ctx.textBaseline = 'middle';
-    ctx.fillText(textStr, 0, textHeight / 2 + 1); // +1 微调垂直居中
+    ctx.fillText(textStr, 0, textHeight / 2 + 1); // +1 nudge for vertical centering
 
     banner.appendChild(canvas);
     document.body.appendChild(banner);
 
-    // 4. 启动被动监视 (MutationObserver)
+    // 4. Start passive monitoring (MutationObserver)
     complianceObserver = new MutationObserver((mutations) => {
         let needsRebuild = false;
         mutations.forEach(m => {
-            // 如果节点被移除
+            // If node was removed
             if (m.removedNodes.length) {
                 m.removedNodes.forEach(node => {
                     if (node.id === currentBannerId) needsRebuild = true;
                 });
             }
-            // 如果属性被篡改 (如 style set to none)
+            // If attributes were tampered with (e.g., style set to none)
             if (m.target.id === currentBannerId) {
                 needsRebuild = true;
             }
-            // 子节点变化 (例如 Canvas 被删除了)
+            // Child node changes (e.g., Canvas was deleted)
             if (m.target.id === currentBannerId && m.type === 'childList') needsRebuild = true;
         });
 
-        if (needsRebuild) { // 异步重建防止死锁
-            // 只要检测到针对Banner的任何改动，立即销毁旧的并重建
-            setTimeout(() => { // 使用 setTimeout 避免在Observer回调中同步操作DOM
-                const old = document.getElementById(currentBannerId); // 销毁旧的引用（如果还在DOM里但被改了）
+        if (needsRebuild) { // Async rebuild to prevent deadlock
+            // On any tampering detected: immediately destroy old banner and rebuild
+            setTimeout(() => { // setTimeout avoids synchronous DOM manipulation inside Observer callback
+                const old = document.getElementById(currentBannerId); // Destroy old reference (if still in DOM but modified)
                 if (old) old.remove();
-                // 立即重建
+                // Rebuild immediately
                 ensureComplianceBanner();
             }, 0);
         }
     });
 
-    complianceObserver.observe(document.body, { childList: true, subtree: false }); // 监控 body 子节点删除
-    // 监视 banner 自身的属性变化 (防止通过 style="display:none" 隐藏)
-    setTimeout(() => { // 注意：这里需要再次获取最新的 banner 引用
+    complianceObserver.observe(document.body, { childList: true, subtree: false }); // Monitor body child removal
+    // Monitor banner's own attribute changes (prevent hiding via style="display:none")
+    setTimeout(() => { // Re-acquire latest banner reference
         const b = document.getElementById(currentBannerId);
         if (b && complianceObserver) {
             complianceObserver.observe(b, { attributes: true, attributeFilter: ['style', 'class', 'hidden', 'id', 'data-tm-policy', 'contenteditable'], childList: true, subtree: true });
@@ -132,21 +132,21 @@ function ensureComplianceBanner() {
     }, 0);
 }
 
-// 切换编辑模式
+// Toggle edit mode
 function toggleEditMode(enable) {
     if (isEditMode === enable) return;
     isEditMode = enable;
 
     if (isEditMode) {
-        hasEditSessionStarted = true; // 标记会话已开始，此后 Banner 即使退出编辑模式也会常驻
+        hasEditSessionStarted = true; // Mark session started — banner persists even after exiting edit mode
         document.designMode = 'on';
         ensureComplianceBanner();
         showToast(t('menu_edit') + ': ' + t('val_on'));
     } else {
         document.designMode = 'off';
         showToast(t('menu_exit_edit'));
-        hideUI(); // 隐藏可能残留的按钮
+        hideUI(); // Hide any lingering buttons
 
-        ensureComplianceBanner();  // 确保 Banner 依然存在 (防止在切换瞬间被误删)
+        ensureComplianceBanner();  // Ensure banner still exists (prevent accidental deletion during toggle)
     }
 }

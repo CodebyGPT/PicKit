@@ -1,6 +1,6 @@
-// 模块 06: 链接与密码提取器 (Link & Password Extractors)
+// Module 06: Link & Password Extractors
 
-// 获取合并后的完整TLD集合 (内置 + 用户自定义)
+// Get merged complete TLD set (built-in + user-defined)
 function getEffectiveTLDs() {
     const custom = getConfig('customTLDs') || [];
     if (custom.length === 0) return TLD_SET_EXTENDED;
@@ -9,7 +9,7 @@ function getEffectiveTLDs() {
     return merged;
 }
 
-// RFC 3986 URL安全字符检测 (unreserved + reserved)
+// RFC 3986 URL safe character detection (unreserved + reserved)
 const isUrlSafeChar = (ch) => {
     const code = ch.charCodeAt(0);
     return code < 128 && /^[a-zA-Z0-9._~:/?#[\]@!$&'()*+,;=%-]$/.test(ch);
@@ -17,7 +17,7 @@ const isUrlSafeChar = (ch) => {
 
 const isChineseChar = (ch) => /[\u4e00-\u9fa5]/.test(ch);
 
-// 清理URL末尾的非URL字符
+// Clean non-URL characters from the end of a URL
 function trimUrlTail(url) {
     url = url.replace(/[,.。;:!?！？、]+$/, '');
     const openParens = (url.match(/\(/g) || []).length;
@@ -35,8 +35,8 @@ function trimUrlTail(url) {
     return url;
 }
 
-// 在文本中从startPos开始扫描URL路径，返回路径结束位置
-// 关键规则：遇到中文后停止扫描，且中文前的(需要回退
+// Scan URL path from startPos in text, return path end position
+// Key rule: stop scanning on Chinese characters; backtrack '(' before Chinese
 function scanUrlPath(text, startPos) {
     let urlEnd = startPos;
     let sawChinese = false;
@@ -68,21 +68,21 @@ function scanUrlPath(text, startPos) {
     return urlEnd;
 }
 
-// 协议锚点正则
+// Protocol anchor regex
 const PROTO_ANCHOR_PATTERN = /https?:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}/gi;
 
-// 无协议域名锚点正则 (用于 cloud.189.cn/t/xxx 这种格式)
+// Protocol-less domain anchor regex (for patterns like cloud.189.cn/t/xxx)
 const DOMAIN_ANCHOR_PATTERN = /(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}/gi;
 
-// 从文本中提取所有URL
+// Extract all URLs from text
 function extractUrlsFromText(text) {
     const effectiveTLDs = getEffectiveTLDs();
     const results = [];
 
-    // 收集所有锚点 (协议 + 无协议)
+    // Collect all anchors (proto + proto-less)
     const allAnchors = [];
 
-    // 协议锚点
+    // Protocol anchors
     let m;
     const protoRegex = new RegExp(PROTO_ANCHOR_PATTERN.source, 'gi');
     while ((m = protoRegex.exec(text)) !== null) {
@@ -94,10 +94,10 @@ function extractUrlsFromText(text) {
         });
     }
 
-    // 无协议域名锚点 (仅当协议锚点未覆盖时)
+    // Protocol-less domain anchors (only where not already covered)
     const domainRegex = new RegExp(DOMAIN_ANCHOR_PATTERN.source, 'gi');
     while ((m = domainRegex.exec(text)) !== null) {
-        // 检查这个域名是否已被协议锚点覆盖
+        // Check if this domain is already covered by a proto anchor
         const isOverlapped = allAnchors.some(a =>
             m.index >= a.start && m.index < a.end
         );
@@ -111,10 +111,10 @@ function extractUrlsFromText(text) {
         }
     }
 
-    // 按位置排序
+    // Sort by position
     allAnchors.sort((a, b) => a.start - b.start);
 
-    // 去重：移除被前一个锚点URL范围覆盖的锚点（使用锚点自身结束位置做初步过滤）
+    // Deduplicate: remove anchors whose range is already covered by a previous one (use anchor end position for initial filtering)
     const deduped = [];
     for (const anchor of allAnchors) {
         if (deduped.length === 0 || anchor.start >= deduped[deduped.length - 1].end) {
@@ -122,10 +122,10 @@ function extractUrlsFromText(text) {
         }
     }
 
-    // 扫描每个锚点的路径，记录实际URL结束位置用于后续去重
+    // Scan path for each anchor; record actual URL end position for dedup
     let lastUrlEnd = 0;
     for (const anchor of deduped) {
-        // 跳过已被前一个完整URL覆盖的锚点
+        // Skip anchors already covered by the previous full URL
         if (anchor.start < lastUrlEnd) continue;
         const host = anchor.hostAndProto.replace(/^https?:\/\//, '').split('/')[0];
         const tld = host.split('.').pop().toLowerCase();
@@ -137,17 +137,17 @@ function extractUrlsFromText(text) {
         url = url.replace(/[\u4e00-\u9fa5]+/g, '');
         url = trimUrlTail(url);
 
-        // 验证：URL至少要有域名之后的路径部分
+        // Validate: URL must have path beyond domain
         if (!anchor.hasProto) {
             const urlHost = url.split('/')[0];
-            // 协议后的URL至少包含一个/路径，或?参数
+            // URL after protocol must contain at least one / path or ? param
             if (url === urlHost || url.length <= urlHost.length) {
-                // 没有路径，检查是否有?参数
+                // No path; check for ? params
                 const questionIdx = text.indexOf('?', anchor.end);
                 if (questionIdx !== -1 && questionIdx < anchor.end + 50) {
-                    // 可能后面有参数，但扫描没抓到。保守跳过。
+                    // May have params after, but scanner didn't catch them. Conservative skip.
                 }
-                // 纯域名不做为链接 (如 "cloud.189.cn" alone)
+                // Bare domain not treated as link (e.g., "cloud.189.cn" alone)
                 if (!/[/?#]/.test(url)) continue;
             }
         }
@@ -157,24 +157,24 @@ function extractUrlsFromText(text) {
         if (!effectiveTLDs.has(finalTld)) continue;
 
         const fullUrl = url.startsWith('http') ? url : 'http://' + url;
-        const displayUrl = anchor.hasProto ? url : url; // display shows with http:// added
+        const displayUrl = anchor.hasProto ? url : url; // Display shows with http:// if needed
 
         results.push({
             display: fullUrl.replace(/^https?:\/\//, '') === url.replace(/^https?:\/\//, '')
                 ? url : fullUrl,
             url: fullUrl,
             host: finalHost,
-            anchorStart: anchor.start  // 保留锚点在原文中的位置，用于密码分配
+            anchorStart: anchor.start  // Keep anchor position in original text for password assignment
         });
 
-        // 标记已覆盖范围，用于后续锚点去重
+        // Mark covered range for subsequent anchor dedup
         lastUrlEnd = pathEnd;
     }
 
     return results;
 }
 
-// 提取所有密码及其在原文中的位置
+// Extract all passwords with their positions in the original text
 function extractAllCodesWithPositions(rawText) {
     const results = [];
     const codePatterns = [
@@ -183,7 +183,7 @@ function extractAllCodesWithPositions(rawText) {
         /码\s*[:：\s]*([a-zA-Z0-9]{3,8})(?![a-zA-Z0-9])/gi,
         /\([:：\s]*([a-zA-Z0-9]{3,8})\s*\)/gi,
     ];
-    const seen = new Set(); // 去重：同一位置同一code只记一次
+    const seen = new Set(); // Dedup: same position + same code recorded once
     for (const pat of codePatterns) {
         let m;
         while ((m = pat.exec(rawText)) !== null) {
@@ -198,15 +198,15 @@ function extractAllCodesWithPositions(rawText) {
     return results;
 }
 
-// 智能链接与密码提取器
+// Smart link and password extractor
 function extractLinkAndCode(rawText) {
     if (!rawText) return null;
 
-    // ---- 阶段1: 提取所有密码及其位置 ----
+    // ---- Stage 1: Extract all passwords with positions ----
     const allCodes = extractAllCodesWithPositions(rawText);
     const password = allCodes.length > 0 ? allCodes[0].code : null;
 
-    // ---- 阶段2: 提取URL (双重策略) ----
+    // ---- Stage 2: Extract URLs (dual strategy) ----
     let urls = extractUrlsFromText(rawText);
 
     if (urls.length === 0) {
@@ -218,11 +218,11 @@ function extractLinkAndCode(rawText) {
 
     if (urls.length === 0 && !password) return null;
 
-    // ---- 阶段3: 为每个URL分配最近的密码（直接用锚点位置，不重搜 host）----
+    // ---- Stage 3: Assign nearest password to each URL (use anchor position directly, no re-search on host) ----
     for (let i = 0; i < urls.length; i++) {
         const urlStart = urls[i].anchorStart;
         if (urlStart === undefined) continue;
-        // 该URL在原文中的范围：[urlStart, nextUrlStart)
+        // This URL's range in the original text: [urlStart, nextUrlStart)
         const nextUrlStart = (i + 1 < urls.length && urls[i + 1].anchorStart !== undefined)
             ? urls[i + 1].anchorStart
             : rawText.length;
@@ -238,7 +238,7 @@ function extractLinkAndCode(rawText) {
     };
 }
 
-// 邮箱地址提取器
+// Email address extractor
 function extractEmailFromText(rawText) {
     if (!rawText || !rawText.includes('@')) return null;
     const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;

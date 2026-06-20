@@ -1,22 +1,22 @@
-// 模块 08: Shadow DOM 容器与样式 (Shadow DOM & Styles)
+// Module 08: Shadow DOM Container & Styles
 
-// 初始化 Shadow DOM 容器 (针对 SPA/AJAX 优化)
+// Initialize Shadow DOM container (optimized for SPA/AJAX)
 function initContainer() {
-    // 1. 检查 hostElement 是否存在且仍然连接在文档中 (isConnected)
+    // 1. Check if hostElement exists and is still connected to the document (isConnected)
     if (hostElement && hostElement.isConnected) return;
 
-    // 2. 如果 hostElement 存在但已从 DOM 脱落（被网页脚本清除），清理旧引用
+    // 2. If hostElement exists but has been detached from DOM (cleared by page scripts), clean up old reference
     if (hostElement) {
         hostElement = null;
         shadowRoot = null;
     }
 
-    // 3. 重新创建容器
+    // 3. Re-create container
     hostElement = document.createElement('div');
     hostElement.id = 'tm-smart-copy-host';
     hostElement.style.all = 'initial';
     hostElement.style.position = 'fixed';
-    hostElement.style.zIndex = '2147483647'; // Max Z-Index
+    hostElement.style.zIndex = '2147483647'; // Max z-index
     hostElement.style.top = '0';
     hostElement.style.left = '0';
     hostElement.style.width = '0';
@@ -24,23 +24,23 @@ function initContainer() {
     hostElement.style.overflow = 'visible';
     hostElement.style.pointerEvents = 'none';
 
-    // [重要] 挂载到 documentElement (html) 而不是 body
-    // 这样即使 body 被 SPA 框架重写，挂在 html 上的元素通常能幸存
+    // Important: mount on documentElement (html) instead of body
+    // This way even if body is overwritten by SPA framework, elements on html usually survive
     (document.documentElement || document.body).appendChild(hostElement);
 
     shadowRoot = hostElement.attachShadow({ mode: 'open' });
 
-    // 重新注入样式
+    // Re-inject styles
     const style = document.createElement('style');
     style.textContent = getStyles();
     shadowRoot.appendChild(style);
 }
 
-// 获取样式表字符串
+// Get stylesheet string
 function getStyles() {
     const isCol = getConfig('buttonStyle') === 'col';
-    const padRow = '10px 13.1415926px';   // 胶囊：上下略小，左右略大
-    const padCol = '10px';       // 纵向：正方形，四边一致
+    const padRow = '10px 13.1415926px';   // Capsule: slightly narrower top/bottom, wider left/right
+    const padCol = '10px';       // Column: square, equal on all sides
     return `
         :host { all: initial; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         .sc-container {
@@ -92,7 +92,7 @@ function getStyles() {
             transform: scale(0.98);
             background: rgba(255, 255, 255, 0.2);
         }
-        /* 深色模式覆盖 */
+        /* Dark mode overrides */
         .theme-dark-ui {
             background: rgba(30, 30, 30, 0.3);
             border: 1px solid transparent;
@@ -111,7 +111,7 @@ function getStyles() {
         .theme-dark-ui .sc-btn:active {
             background: rgba(255, 255, 255, 0.1);
         }
-        /* 分割线 */
+        /* Dividers */
         .divider {
             background: rgba(255, 255, 255, 0.25);
         }
@@ -120,7 +120,7 @@ function getStyles() {
         }
         .divider-v { width: 1px; height: 1.6em; align-self: center; }
         .divider-h { height: 1px; width: 100%; }
-        /* Toast 通知 */
+        /* Toast notification */
         .sc-toast {
             position: fixed;
             left: 50%;
@@ -140,7 +140,7 @@ function getStyles() {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         }
         .sc-toast.show { opacity: 1; }
-        /* ===== Liquid Glass + HDR Glow ===== */
+        /* ===== Glass refraction edges ===== */
         .sc-container {
             position: fixed;
             display: flex;
@@ -201,7 +201,7 @@ function getStyles() {
                 0 0 22px rgba(255,255,255,0.25),
                 0 0 36px rgba(255,255,255,0.15);
         }
-        /* ===== 玻璃折射边 ===== */
+        /* ===== Glass refraction edges ===== */
         .theme-light-ui.sc-container {
             background:
                 linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.08)),
@@ -243,14 +243,14 @@ function getStyles() {
                 0 0 12px rgba(255,255,255,0.06),
                 0 8px 26px rgba(0,0,0,0.32);
         }
-        /* 图标包装器：作为角标定位锚点，尺寸与SVG一致 */
+        /* Icon wrapper: serves as badge positioning anchor, same size as SVG */
         .sc-icon-wrap {
             position: relative;
             display: inline-flex;
             width: 18px;
             height: 18px;
         }
-        /* 链接数量角标: 右下角对齐图标右下角，叠在图标上层 */
+        /* Link count badge: bottom-right aligned, layered on top of icon */
         .sc-badge {
             position: absolute;
             right: 0;

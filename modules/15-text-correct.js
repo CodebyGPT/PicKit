@@ -1,8 +1,8 @@
-// 模块 15: 智能文本校正 (Smart Text Correction)
+// Module 15: Smart Text Correction
 
-// 9条中文排版规范的核心校正算法
+// Core correction algorithm with 9 Chinese typography rules
 function smartCorrectText(text, isInputType) {
-    // 0. 基础判定
+    // 0. Basic determination
     const hasHanzi = /[\u4e00-\u9fa5]/.test(text);
     const hasCNPunct = /[，。：；？！""''（）【】《》]/.test(text);
     const hasNum = /\d/.test(text);
@@ -26,7 +26,7 @@ function smartCorrectText(text, isInputType) {
 
     let result = text;
 
-    // --- 规范 9: 换行/删空判定 (优先级最高) ---
+    // --- Rule 9: Line break / whitespace removal (highest priority) ---
     if (activeRules.basic) {
         const rule9Regex = /([\u4e00-\u9fa5。])(\s{2,})(?=[\u4e00-\u9fa5]|\d{1,3}(?:[、.]|\s))/g;
         result = applyRule(result, rule9Regex, (match, p1, p2) => {
@@ -34,7 +34,7 @@ function smartCorrectText(text, isInputType) {
         });
     }
 
-    // --- 规范 6: 纯中文环境下的英文标点转中文 ---
+    // --- Rule 6: English punctuation to Chinese in pure Chinese environment ---
     if (activeRules.pureCN) {
         const parts = result.split(/(".*?"|".*?")/g);
         result = parts.map((part, i) => {
@@ -49,13 +49,13 @@ function smartCorrectText(text, isInputType) {
         }).join('');
     }
 
-    // --- 规范 1: 中英之间加空格 ---
+    // --- Rule 1: Add space between Chinese and English ---
     if (activeRules.basic) {
         result = applyRule(result, /([\u4e00-\u9fa5])([a-zA-Z])/g, '$1 $2');
         result = applyRule(result, /([a-zA-Z])([\u4e00-\u9fa5])/g, '$1 $2');
     }
 
-    // --- 规范 2: 中文与数字(含运算)加空格 ---
+    // --- Rule 2: Add space between Chinese and numbers (including operators) ---
     if (activeRules.basic) {
         const isMathContext = /[+*/=]|等于/.test(text);
         const charSet = isMathContext ? '[\\d+\\-*/=]' : '[\\d]';
@@ -65,18 +65,18 @@ function smartCorrectText(text, isInputType) {
         result = applyRule(result, regex2, '$1 ');
     }
 
-    // --- 规范 3: 字符/数字与后方标点去空格 ---
+    // --- Rule 3: Remove space between char/number and trailing punctuation ---
     if (activeRules.punct) {
         result = applyRule(result, /([a-zA-Z0-9\u4e00-\u9fa5])\s+([,.:;?!，。：；？！、\])}（）】【《》[({""''"'])/g, '$1$2');
     }
 
-    // --- 规范 4: 数字/字符与单位 (%, ℃, $) ---
+    // --- Rule 4: Number/char and unit (%, ℃, $) ---
     if (activeRules.unit) {
         result = applyRule(result, /(\d)\s+([%℃$])/g, '$1$2');
         result = applyRule(result, /([^\s\d])([%℃$])/g, '$1 $2');
     }
 
-    // --- 规范 5: 中文句号去重 ---
+    // --- Rule 5: Deduplicate Chinese periods ---
     if (activeRules.basic) {
         const parts = result.split(/(".*?"|".*?")/g);
         result = parts.map((part, i) => {
@@ -87,12 +87,12 @@ function smartCorrectText(text, isInputType) {
         }).join('');
     }
 
-    // --- 规范 7: 数字间中文冒号转英文 ---
+    // --- Rule 7: Chinese colon between numbers to English colon ---
     if (activeRules.unit) {
         result = applyRule(result, /(\d)\s*：\s*(\d)/g, '$1:$2');
     }
 
-    // --- 规范 8: 双引号修正 (仅当只有一对时) ---
+    // --- Rule 8: Fix double quotes (only when exactly one pair) ---
     if (activeRules.punct) {
         const quoteCount = (result.match(/[""]/g) || []).length;
         if (quoteCount === 2) {
@@ -107,13 +107,13 @@ function smartCorrectText(text, isInputType) {
     return result === text ? null : result;
 }
 
-// 执行校正操作
+// Execute correction operation
 async function handleTextCorrection(target, originalText) {
     const isInput = target.tagName === 'INPUT';
     const newText = smartCorrectText(originalText, isInput);
 
     if (!newText) {
-        showToast('无需校正');
+        showToast('No correction needed');
         return;
     }
 
@@ -128,16 +128,16 @@ async function handleTextCorrection(target, originalText) {
         performPaste(target, newText);
     }
 
-    showToast('文本已校正');
+    showToast('Text corrected');
     hideUI();
 }
 
-// 执行粘贴的核心逻辑 (三级降级策略)
+// Core paste logic (three-tier fallback strategy)
 function performPaste(target, text) {
     if (!target) return;
     target.focus();
 
-    // 策略 1: document.execCommand (保留撤销能力，最稳妥)
+    // Strategy 1: document.execCommand (preserves undo, safest)
     try {
         const success = document.execCommand('insertText', false, text);
         if (success) {
@@ -146,7 +146,7 @@ function performPaste(target, text) {
         }
     } catch (e) {}
 
-    // 策略 2: 直接赋值 + 触发事件 (兼容 Vue/React)
+    // Strategy 2: Direct assignment + dispatch events (Vue/React compat)
     try {
         if (target.isContentEditable) {
             const sel = window.getSelection();

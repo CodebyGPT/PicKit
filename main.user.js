@@ -27,8 +27,8 @@
 // ==/UserScript==
 
 
-// 模块 01: 异步兼容层 (Async Compatibility Layer)
-// 优先使用 GM.getValue (标准异步)，降级使用 GM_getValue (Tampermonkey同步)
+// Module 01: Async Compatibility Layer
+// Prefer GM.getValue (standard async), fallback to GM_getValue (Tampermonkey sync)
 
 const safeGetValue = (key, def) => {
     if (typeof GM !== 'undefined' && GM.getValue) {
@@ -48,21 +48,21 @@ const safeSetValue = (key, val) => {
 
 const safeOpenTab = (url, options) => {
     if (typeof GM !== 'undefined' && GM.openInTab) {
-        // 现代异步标准 (GM.openInTab)
+        // Modern async standard (GM.openInTab)
         GM.openInTab(url, options);
     } else {
-        // 旧版同步标准 (GM_openInTab)
+        // Legacy sync standard (GM_openInTab)
         GM_openInTab(url, options);
     }
 };
 
-// 模块 02: 配置与状态管理 (Configuration & State)
+// Module 02: Configuration & State
 
 const DEFAULT_CONFIG = {
-    language: 'auto', // 'auto'（默认） | 'zh-CN' | 'en' | 'ru'
+    language: 'auto', // 'auto' (default) | 'zh-CN' | 'en' | 'ru'
     positionMode: 'endchar', // 'endchar' | 'mouse'
     offset: 12, // px
-    timeout: 2400, // ms, 0 = infinite
+    timeout: 2400, // ms, 0 = stays indefinitely
     buttonStyle: 'row', // 'row' (capsule) | 'col' (rounded rect)
     forceWhiteBlack: true, // true = force white bg/black text
     searchEngine: 'baidu', // key or custom url
@@ -73,19 +73,19 @@ const DEFAULT_CONFIG = {
 
     enableDragPreview: false,
     scrollRepaintMode: 'always',
-    smartEngine: false,        // 是否启用智能分配
-    fallbackEngine: 'bing',   // 不含中文时的备用引擎
-    enableDeleteBtn: true, // 是否显示删除按钮
-    customTLDs: [], // 用户自定义的顶级域名列表
+    smartEngine: false,        // whether to enable smart engine assignment
+    fallbackEngine: 'bing',   // fallback engine when text contains no Chinese
+    enableDeleteBtn: true, // whether to show delete button
+    customTLDs: [], // user-defined TLD list
 };
 
 const SCROLL_REPAINT_MODE = {
-    ALWAYS: 'always',      // 1. 始终重绘（默认）
-    VIEWPORT: 'viewport',  // 2. 锚点在视口内才重绘
-    HIDE: 'hide'           // 3. 滚动即隐藏，不重绘
+    ALWAYS: 'always',      // 1. Always repaint (default)
+    VIEWPORT: 'viewport',  // 2. Repaint only when anchor is within viewport
+    HIDE: 'hide'           // 3. Hide on scroll, never repaint
 };
 
-const PASTE_MODE_THREE_BTNS = 'copy-search-paste';   // 闪电粘贴三按钮模式标记
+const PASTE_MODE_THREE_BTNS = 'copy-search-paste';   // Lightning paste three-button mode marker
 
 const SEARCH_ENGINES = {
     google: { name: 'Google', url: 'https://www.google.com/search?q=%s' },
@@ -94,7 +94,7 @@ const SEARCH_ENGINES = {
     brave: { name: 'Brave', url: 'https://search.brave.com/search?q=%s' },
 };
 
-// 顶级域名白名单
+// Top-level domain whitelist
 const TLD_SET = new Set([
     'com', 'cn', 'de', 'tk', 'uk', 'net', 'org', 'top', 'ru',
     'info', 'br', 'xyz', 'ga', 'nl', 'it', 'ws', 'ml', 'shop',
@@ -109,9 +109,9 @@ const TLD_SET = new Set([
     'cyou', 'fi', 'tech', 'sk', 'today', 'gr', 'one', 'digital',
     'gov', 'edu'
 ]);
-const TLD_SET_EXTENDED = new Set(TLD_SET); // 可扩展副本，用于合并自定义TLD
+const TLD_SET_EXTENDED = new Set(TLD_SET); // Extendable copy, merged with custom TLDs
 
-// 运行时状态
+// Runtime state
 let cachedSelection = { text: '', html: '' };
 let uiTimer = null;
 let toastTimer = null;
@@ -120,21 +120,21 @@ let scrollTimeout = null;
 let shadowRoot = null;
 let hostElement = null;
 
-// 配置缓存对象 (初始化为默认值)
+// Config cache object (initialized to defaults)
 let configCache = { ...DEFAULT_CONFIG };
 
-// 新的同步读取 (直接读内存，速度最快，不阻塞UI)
+// Synchronous read (direct memory access, fastest, non-blocking)
 const getConfig = (key) => {
     return configCache[key];
 };
 
-// 新的异步写入 (更新内存 + 保存到存储)
+// Async write (update memory + persist to storage)
 const setConfig = async (key, val) => {
-    configCache[key] = val; // 立即更新内存，保证交互响应
-    await safeSetValue(key, val); // 异步写入持久化存储
+    configCache[key] = val; // Immediate memory update for responsive interaction
+    await safeSetValue(key, val); // Async persist to storage
 };
 
-// 模块 03: 多语言支持系统 (I18N System)
+// Module 03: I18N System
 
 const I18N = {
     'zh-CN': {
@@ -387,41 +387,41 @@ const t = (key, ...args) => {
     return str;
 };
 
-// 模块 04: 编辑模式与合规声明 (Edit Mode & Compliance Banner)
+// Module 04: Edit Mode & Compliance Banner
 
-// 编辑模式状态
+// Edit mode state
 let isEditMode = false;
-let hasEditSessionStarted = false; // 标记本次会话是否启用过编辑模式
+let hasEditSessionStarted = false; // Whether edit mode was ever enabled this session
 let complianceObserver = null;
 let currentBannerId = null;
 
-// 生成随机ID (防拦截)
+// Generate random ID (anti-tampering)
 const generateRandomId = () => 'tm-sc-' + Math.random().toString(36).slice(2, 9);
 
-// 创建/重建合规声明
+// Create / rebuild compliance banner
 function ensureComplianceBanner() {
-    if (!hasEditSessionStarted) return; // 如果从未启动过编辑模式，不生成
+    if (!hasEditSessionStarted) return; // Skip if edit mode was never enabled
 
-    // 1. 检查是否已存在
+    // 1. Check if banner already exists
     const existing = currentBannerId ? document.getElementById(currentBannerId) : null;
-    if (existing && existing.offsetParent !== null) return;// 如果存在且看起来正常（display不是none），则跳过
-    if (existing) existing.remove();// 如果存在但被隐藏了，或者不存在，则继续重建逻辑
+    if (existing && existing.offsetParent !== null) return;// Exists and visible (not display:none), skip
+    if (existing) existing.remove();// Exists but hidden, or missing — proceed to rebuild
 
-    // 2. 如果之前有Observer，先断开，避免重新插入时死循环
+    // 2. Disconnect previous Observer to avoid dead loop on re-insert
     if (complianceObserver) {
         complianceObserver.disconnect();
     }
 
-    // 3. 创建元素
+    // 3. Create element
     const scriptName = GM_info.script.name;
     const banner = document.createElement('div');
     currentBannerId = generateRandomId();
     banner.id = currentBannerId;
 
-    banner.setAttribute('data-tm-policy', 'protected'); // [关键] 添加特殊策略标记，用于 CSS 排除
+    banner.setAttribute('data-tm-policy', 'protected'); // Critical: mark for CSS exclusion
     banner.setAttribute('contenteditable', 'false');
 
-    // 样式：高层级、半透明白底、浅灰字、底部居中、禁止选中、穿透点击(防Picker)
+    // Styles: high z-index, semi-transparent white background, light gray text, bottom-centered, no selection, click-through (anti-picker)
     banner.style.cssText = `
         position: fixed !important;
         bottom: 50px !important;
@@ -432,7 +432,7 @@ function ensureComplianceBanner() {
         padding: 6px 14px !important;
         border-radius: 6px !important;
         box-shadow: 0 2px 10px rgba(0,0,0,0.08) !important;
-        pointer-events: none !important; /* 让鼠标穿透，既不影响浏览，也防止被拾取器选中 */
+        pointer-events: none !important; /* Click-through: avoids blocking page interaction and prevents picker selection */
         user-select: none !important;
         -webkit-user-select: none !important;
         display: flex !important;
@@ -445,26 +445,26 @@ function ensureComplianceBanner() {
         border: 1px solid rgba(0,0,0,0.05) !important;
     `;
 
-    // SVG 图标 (Info)
+    // SVG icon (Info)
     const iconContainer = document.createElement('div');
     iconContainer.style.cssText = 'display:flex;align-items:center;color:#888;pointer-events:none;';
     iconContainer.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
     banner.appendChild(iconContainer);
 
-    // 2. 文本 (使用 Canvas 绘制，防篡改)
+    // 2. Text (rendered on Canvas for anti-tampering)
     const textStr = t('disclaimer_text').replace('<SCRIPT_NAME>', scriptName);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const fontSize = 12;
     const fontFamily = 'sans-serif';
 
-    // 测量文本宽度
+    // Measure text width
     ctx.font = `${fontSize}px ${fontFamily}`;
     const metrics = ctx.measureText(textStr);
     const textWidth = Math.ceil(metrics.width);
-    const textHeight = Math.ceil(fontSize * 1.2); // 留一点行高
+    const textHeight = Math.ceil(fontSize * 1.2); // Some line height
 
-    // 设置 Canvas 尺寸 (考虑高分屏清晰度，使用 2x 缩放)
+    // Set canvas dimensions (2x scaling for HiDPI clarity)
     const dpr = window.devicePixelRatio || 1;
     canvas.width = textWidth * dpr;
     canvas.height = textHeight * dpr;
@@ -472,48 +472,48 @@ function ensureComplianceBanner() {
     canvas.style.height = `${textHeight}px`;
     canvas.style.pointerEvents = 'none';
 
-    // 绘制
+    // Draw
     ctx.scale(dpr, dpr);
     ctx.font = `${fontSize}px ${fontFamily}`;
     ctx.fillStyle = '#999';
     ctx.textBaseline = 'middle';
-    ctx.fillText(textStr, 0, textHeight / 2 + 1); // +1 微调垂直居中
+    ctx.fillText(textStr, 0, textHeight / 2 + 1); // +1 nudge for vertical centering
 
     banner.appendChild(canvas);
     document.body.appendChild(banner);
 
-    // 4. 启动被动监视 (MutationObserver)
+    // 4. Start passive monitoring (MutationObserver)
     complianceObserver = new MutationObserver((mutations) => {
         let needsRebuild = false;
         mutations.forEach(m => {
-            // 如果节点被移除
+            // If node was removed
             if (m.removedNodes.length) {
                 m.removedNodes.forEach(node => {
                     if (node.id === currentBannerId) needsRebuild = true;
                 });
             }
-            // 如果属性被篡改 (如 style set to none)
+            // If attributes were tampered with (e.g., style set to none)
             if (m.target.id === currentBannerId) {
                 needsRebuild = true;
             }
-            // 子节点变化 (例如 Canvas 被删除了)
+            // Child node changes (e.g., Canvas was deleted)
             if (m.target.id === currentBannerId && m.type === 'childList') needsRebuild = true;
         });
 
-        if (needsRebuild) { // 异步重建防止死锁
-            // 只要检测到针对Banner的任何改动，立即销毁旧的并重建
-            setTimeout(() => { // 使用 setTimeout 避免在Observer回调中同步操作DOM
-                const old = document.getElementById(currentBannerId); // 销毁旧的引用（如果还在DOM里但被改了）
+        if (needsRebuild) { // Async rebuild to prevent deadlock
+            // On any tampering detected: immediately destroy old banner and rebuild
+            setTimeout(() => { // setTimeout avoids synchronous DOM manipulation inside Observer callback
+                const old = document.getElementById(currentBannerId); // Destroy old reference (if still in DOM but modified)
                 if (old) old.remove();
-                // 立即重建
+                // Rebuild immediately
                 ensureComplianceBanner();
             }, 0);
         }
     });
 
-    complianceObserver.observe(document.body, { childList: true, subtree: false }); // 监控 body 子节点删除
-    // 监视 banner 自身的属性变化 (防止通过 style="display:none" 隐藏)
-    setTimeout(() => { // 注意：这里需要再次获取最新的 banner 引用
+    complianceObserver.observe(document.body, { childList: true, subtree: false }); // Monitor body child removal
+    // Monitor banner's own attribute changes (prevent hiding via style="display:none")
+    setTimeout(() => { // Re-acquire latest banner reference
         const b = document.getElementById(currentBannerId);
         if (b && complianceObserver) {
             complianceObserver.observe(b, { attributes: true, attributeFilter: ['style', 'class', 'hidden', 'id', 'data-tm-policy', 'contenteditable'], childList: true, subtree: true });
@@ -521,53 +521,53 @@ function ensureComplianceBanner() {
     }, 0);
 }
 
-// 切换编辑模式
+// Toggle edit mode
 function toggleEditMode(enable) {
     if (isEditMode === enable) return;
     isEditMode = enable;
 
     if (isEditMode) {
-        hasEditSessionStarted = true; // 标记会话已开始，此后 Banner 即使退出编辑模式也会常驻
+        hasEditSessionStarted = true; // Mark session started — banner persists even after exiting edit mode
         document.designMode = 'on';
         ensureComplianceBanner();
         showToast(t('menu_edit') + ': ' + t('val_on'));
     } else {
         document.designMode = 'off';
         showToast(t('menu_exit_edit'));
-        hideUI(); // 隐藏可能残留的按钮
+        hideUI(); // Hide any lingering buttons
 
-        ensureComplianceBanner();  // 确保 Banner 依然存在 (防止在切换瞬间被误删)
+        ensureComplianceBanner();  // Ensure banner still exists (prevent accidental deletion during toggle)
     }
 }
 
-// 模块 05: GM 菜单系统 (GM Menu System)
+// Module 05: GM Menu System
 
-// 启动时一次性加载所有配置
+// Load all config at startup
 async function initConfiguration() {
     configCache['scrollRepaintMode'] = await safeGetValue('scrollRepaintMode', 'always');
     const keys = Object.keys(DEFAULT_CONFIG);
-    // 并行读取所有配置，提高速度
+    // Parallel reads for speed
     const values = await Promise.all(
         keys.map(key => safeGetValue(key, DEFAULT_CONFIG[key]))
     );
 
-    // 将读取到的值写入缓存
+    // Write read values to cache
     keys.forEach((key, index) => {
         configCache[key] = values[index];
     });
 
-    // 额外加载屏蔽规则 (blocked_elements)
+    // Additionally load block rules (blocked_elements)
     const blockedRules = await safeGetValue('blocked_elements', {});
     configCache['blocked_elements'] = blockedRules;
 
-    // 加载自定义TLD并合并到扩展集合
+    // Load custom TLDs and merge into extended set
     const customTLDs = configCache['customTLDs'] || [];
     if (customTLDs.length > 0) {
         customTLDs.forEach(t => TLD_SET_EXTENDED.add(t.toLowerCase().replace(/^\./, '')));
     }
 }
 
-// 首次运行时根据时区自动设置搜索引擎
+// Auto-set search engine based on timezone on first run
 async function initDefaultSearchEngine() {
     const hasInitialized = await safeGetValue('engine_initialized', false);
     if (!hasInitialized) {
@@ -582,7 +582,7 @@ async function initDefaultSearchEngine() {
 }
 
 function registerMenus() {
-    // 1. 语言设置 (Language)
+    // 1. Language setting
     const curLang = getConfig('language');
     const langLabel = curLang === 'auto' ? 'Auto' : (I18N[curLang] ? I18N[curLang].lang_name : curLang);
     GM_registerMenuCommand(`${t('menu_lang')}: ${langLabel}`, () => {
@@ -591,14 +591,14 @@ function registerMenus() {
         location.reload();
     });
 
-    // 2.1 定位模式
+    // 2.1 Position mode
     const posMode = getConfig('positionMode');
     GM_registerMenuCommand(`${t('menu_pos')}: ${posMode === 'endchar' ? t('val_endchar') : t('val_mouse')}`, () => {
         setConfig('positionMode', posMode === 'endchar' ? 'mouse' : 'endchar');
         location.reload();
     });
 
-    // 2.2 偏移量
+    // 2.2 Offset
     GM_registerMenuCommand(`${t('menu_offset')}: ${getConfig('offset')}px`, () => {
         const val = prompt(t('prompt_offset'), getConfig('offset'));
         if (val !== null && !isNaN(val)) {
@@ -607,7 +607,7 @@ function registerMenus() {
         }
     });
 
-    // 按钮重绘策略
+    // Button repaint strategy
     const scrollMode = getConfig('scrollRepaintMode');
     const modeText = {
         always: t('scroll_always'),
@@ -620,7 +620,7 @@ function registerMenus() {
         location.reload();
     });
 
-    // 2.3 停留时长
+    // 2.3 Timeout
     const timeout = getConfig('timeout');
     GM_registerMenuCommand(`${t('menu_timeout')}: ${timeout === 0 ? t('val_infinite') : timeout + 'ms'}`, () => {
         const val = prompt(t('prompt_timeout'), timeout);
@@ -630,28 +630,28 @@ function registerMenus() {
         }
     });
 
-    // 2.4 按钮样式
+    // 2.4 Button style
     const btnStyle = getConfig('buttonStyle');
     GM_registerMenuCommand(`${t('menu_style')}: ${btnStyle === 'row' ? t('val_row') : t('val_col')}`, () => {
         setConfig('buttonStyle', btnStyle === 'row' ? 'col' : 'row');
         location.reload();
     });
 
-    // 2.5 配色方案
+    // 2.5 Theme
     const forceWB = getConfig('forceWhiteBlack');
     GM_registerMenuCommand(`${t('menu_theme')}: ${forceWB ? t('val_light') : t('val_auto')}`, () => {
         setConfig('forceWhiteBlack', !forceWB);
         location.reload();
     });
 
-    // 删除按钮开关
+    // Delete button toggle
     const showDelete = getConfig('enableDeleteBtn');
     GM_registerMenuCommand(`${t('menu_delete_btn')}: ${showDelete ? t('val_show') : t('val_hide')}`, () => {
         setConfig('enableDeleteBtn', !showDelete);
         location.reload();
     });
 
-    // 2.6 搜索引擎
+    // 2.6 Search engine
     const currentEngineKey = getConfig('searchEngine');
     const engineName = SEARCH_ENGINES[currentEngineKey] ? SEARCH_ENGINES[currentEngineKey].name : 'Custom';
     GM_registerMenuCommand(`${t('menu_search')}: ${engineName}`, () => {
@@ -666,14 +666,14 @@ function registerMenus() {
         }
     });
 
-    // 智能分配开关
+    // Smart engine toggle
     const smartOn = getConfig('smartEngine');
     GM_registerMenuCommand(`${t('menu_smart_engine')}: ${smartOn ? t('val_smart_on') : t('val_smart_off')}`, () => {
         setConfig('smartEngine', !smartOn);
         location.reload();
     });
 
-    // 备用引擎选择（仅当开启时才显示）
+    // Fallback engine selection (only shown when smart engine is on)
     if (smartOn) {
         const fbKey = getConfig('fallbackEngine');
         const fbName = SEARCH_ENGINES[fbKey] ? SEARCH_ENGINES[fbKey].name : 'Custom';
@@ -690,19 +690,19 @@ function registerMenus() {
         });
     }
 
-    // 2.7 缓存功能
+    // 2.7 Cache
     GM_registerMenuCommand(`${t('menu_cache')}: ${getConfig('enableCache') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enableCache', !getConfig('enableCache'));
         location.reload();
     });
 
-    // 2.8 Toast通知
+    // 2.8 Toast notification
     GM_registerMenuCommand(`${t('menu_toast')}: ${getConfig('enableToast') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enableToast', !getConfig('enableToast'));
         location.reload();
     });
 
-    // 2.9 超级划词模式快捷键
+    // 2.9 Unlock mode hotkey
     const currentKey = getConfig('unlockHotkey');
     GM_registerMenuCommand(`${t('menu_hotkey')}: ${currentKey || t('val_disabled')}`, () => {
         const val = prompt(t('prompt_hotkey'));
@@ -718,19 +718,19 @@ function registerMenus() {
         location.reload();
     });
 
-    // 2.10 闪电粘贴
+    // 2.10 Lightning paste
     GM_registerMenuCommand(`${t('menu_paste')}: ${getConfig('enablePaste') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enablePaste', !getConfig('enablePaste'));
         location.reload();
     });
 
-    // 拖拽预览开关
+    // Drag preview toggle
     GM_registerMenuCommand(`${t('menu_drag_preview')}: ${getConfig('enableDragPreview') ? t('val_on') : t('val_off')}`, () => {
         setConfig('enableDragPreview', !getConfig('enableDragPreview'));
         location.reload();
     });
 
-    // 2.12 屏蔽元素工具
+    // 2.12 Block element tool
     GM_registerMenuCommand(t('menu_block'), () => {
         activateElementPicker();
     });
@@ -751,12 +751,12 @@ function registerMenus() {
         }
     });
 
-    // 新增：添加自定义顶级域名
+    // Add custom TLD
     GM_registerMenuCommand(t('menu_tld_add'), () => {
         const val = prompt(t('prompt_tld_add'));
         if (!val) return;
-        let tld = val.trim().toLowerCase().replace(/^\./, ''); // 移除前导点
-        // 验证：只允许字母
+        let tld = val.trim().toLowerCase().replace(/^\./, ''); // Strip leading dot
+        // Validate: letters only
         if (!/^[a-z]{2,}$/.test(tld)) {
             alert(t('err_tld_invalid'));
             return;
@@ -772,12 +772,12 @@ function registerMenus() {
         showToast(t('toast_tld_added', tld));
     });
 
-    // 新增：编辑网页
+    // Edit page
     GM_registerMenuCommand(t('menu_edit'), () => {
         toggleEditMode(!isEditMode);
     });
 
-    // 2.13 重置
+    // 2.13 Reset
     GM_registerMenuCommand(t('menu_reset'), async () => {
         if (confirm(t('confirm_reset'))) {
             const keys = Object.keys(DEFAULT_CONFIG);
@@ -787,9 +787,9 @@ function registerMenus() {
     });
 }
 
-// 模块 06: 链接与密码提取器 (Link & Password Extractors)
+// Module 06: Link & Password Extractors
 
-// 获取合并后的完整TLD集合 (内置 + 用户自定义)
+// Get merged complete TLD set (built-in + user-defined)
 function getEffectiveTLDs() {
     const custom = getConfig('customTLDs') || [];
     if (custom.length === 0) return TLD_SET_EXTENDED;
@@ -798,7 +798,7 @@ function getEffectiveTLDs() {
     return merged;
 }
 
-// RFC 3986 URL安全字符检测 (unreserved + reserved)
+// RFC 3986 URL safe character detection (unreserved + reserved)
 const isUrlSafeChar = (ch) => {
     const code = ch.charCodeAt(0);
     return code < 128 && /^[a-zA-Z0-9._~:/?#[\]@!$&'()*+,;=%-]$/.test(ch);
@@ -806,7 +806,7 @@ const isUrlSafeChar = (ch) => {
 
 const isChineseChar = (ch) => /[\u4e00-\u9fa5]/.test(ch);
 
-// 清理URL末尾的非URL字符
+// Clean non-URL characters from the end of a URL
 function trimUrlTail(url) {
     url = url.replace(/[,.。;:!?！？、]+$/, '');
     const openParens = (url.match(/\(/g) || []).length;
@@ -824,8 +824,8 @@ function trimUrlTail(url) {
     return url;
 }
 
-// 在文本中从startPos开始扫描URL路径，返回路径结束位置
-// 关键规则：遇到中文后停止扫描，且中文前的(需要回退
+// Scan URL path from startPos in text, return path end position
+// Key rule: stop scanning on Chinese characters; backtrack '(' before Chinese
 function scanUrlPath(text, startPos) {
     let urlEnd = startPos;
     let sawChinese = false;
@@ -857,21 +857,21 @@ function scanUrlPath(text, startPos) {
     return urlEnd;
 }
 
-// 协议锚点正则
+// Protocol anchor regex
 const PROTO_ANCHOR_PATTERN = /https?:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}/gi;
 
-// 无协议域名锚点正则 (用于 cloud.189.cn/t/xxx 这种格式)
+// Protocol-less domain anchor regex (for patterns like cloud.189.cn/t/xxx)
 const DOMAIN_ANCHOR_PATTERN = /(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}/gi;
 
-// 从文本中提取所有URL
+// Extract all URLs from text
 function extractUrlsFromText(text) {
     const effectiveTLDs = getEffectiveTLDs();
     const results = [];
 
-    // 收集所有锚点 (协议 + 无协议)
+    // Collect all anchors (proto + proto-less)
     const allAnchors = [];
 
-    // 协议锚点
+    // Protocol anchors
     let m;
     const protoRegex = new RegExp(PROTO_ANCHOR_PATTERN.source, 'gi');
     while ((m = protoRegex.exec(text)) !== null) {
@@ -883,10 +883,10 @@ function extractUrlsFromText(text) {
         });
     }
 
-    // 无协议域名锚点 (仅当协议锚点未覆盖时)
+    // Protocol-less domain anchors (only where not already covered)
     const domainRegex = new RegExp(DOMAIN_ANCHOR_PATTERN.source, 'gi');
     while ((m = domainRegex.exec(text)) !== null) {
-        // 检查这个域名是否已被协议锚点覆盖
+        // Check if this domain is already covered by a proto anchor
         const isOverlapped = allAnchors.some(a =>
             m.index >= a.start && m.index < a.end
         );
@@ -900,10 +900,10 @@ function extractUrlsFromText(text) {
         }
     }
 
-    // 按位置排序
+    // Sort by position
     allAnchors.sort((a, b) => a.start - b.start);
 
-    // 去重：移除被前一个锚点URL范围覆盖的锚点（使用锚点自身结束位置做初步过滤）
+    // Deduplicate: remove anchors whose range is already covered by a previous one (use anchor end position for initial filtering)
     const deduped = [];
     for (const anchor of allAnchors) {
         if (deduped.length === 0 || anchor.start >= deduped[deduped.length - 1].end) {
@@ -911,10 +911,10 @@ function extractUrlsFromText(text) {
         }
     }
 
-    // 扫描每个锚点的路径，记录实际URL结束位置用于后续去重
+    // Scan path for each anchor; record actual URL end position for dedup
     let lastUrlEnd = 0;
     for (const anchor of deduped) {
-        // 跳过已被前一个完整URL覆盖的锚点
+        // Skip anchors already covered by the previous full URL
         if (anchor.start < lastUrlEnd) continue;
         const host = anchor.hostAndProto.replace(/^https?:\/\//, '').split('/')[0];
         const tld = host.split('.').pop().toLowerCase();
@@ -926,17 +926,17 @@ function extractUrlsFromText(text) {
         url = url.replace(/[\u4e00-\u9fa5]+/g, '');
         url = trimUrlTail(url);
 
-        // 验证：URL至少要有域名之后的路径部分
+        // Validate: URL must have path beyond domain
         if (!anchor.hasProto) {
             const urlHost = url.split('/')[0];
-            // 协议后的URL至少包含一个/路径，或?参数
+            // URL after protocol must contain at least one / path or ? param
             if (url === urlHost || url.length <= urlHost.length) {
-                // 没有路径，检查是否有?参数
+                // No path; check for ? params
                 const questionIdx = text.indexOf('?', anchor.end);
                 if (questionIdx !== -1 && questionIdx < anchor.end + 50) {
-                    // 可能后面有参数，但扫描没抓到。保守跳过。
+                    // May have params after, but scanner didn't catch them. Conservative skip.
                 }
-                // 纯域名不做为链接 (如 "cloud.189.cn" alone)
+                // Bare domain not treated as link (e.g., "cloud.189.cn" alone)
                 if (!/[/?#]/.test(url)) continue;
             }
         }
@@ -946,24 +946,24 @@ function extractUrlsFromText(text) {
         if (!effectiveTLDs.has(finalTld)) continue;
 
         const fullUrl = url.startsWith('http') ? url : 'http://' + url;
-        const displayUrl = anchor.hasProto ? url : url; // display shows with http:// added
+        const displayUrl = anchor.hasProto ? url : url; // Display shows with http:// if needed
 
         results.push({
             display: fullUrl.replace(/^https?:\/\//, '') === url.replace(/^https?:\/\//, '')
                 ? url : fullUrl,
             url: fullUrl,
             host: finalHost,
-            anchorStart: anchor.start  // 保留锚点在原文中的位置，用于密码分配
+            anchorStart: anchor.start  // Keep anchor position in original text for password assignment
         });
 
-        // 标记已覆盖范围，用于后续锚点去重
+        // Mark covered range for subsequent anchor dedup
         lastUrlEnd = pathEnd;
     }
 
     return results;
 }
 
-// 提取所有密码及其在原文中的位置
+// Extract all passwords with their positions in the original text
 function extractAllCodesWithPositions(rawText) {
     const results = [];
     const codePatterns = [
@@ -972,7 +972,7 @@ function extractAllCodesWithPositions(rawText) {
         /码\s*[:：\s]*([a-zA-Z0-9]{3,8})(?![a-zA-Z0-9])/gi,
         /\([:：\s]*([a-zA-Z0-9]{3,8})\s*\)/gi,
     ];
-    const seen = new Set(); // 去重：同一位置同一code只记一次
+    const seen = new Set(); // Dedup: same position + same code recorded once
     for (const pat of codePatterns) {
         let m;
         while ((m = pat.exec(rawText)) !== null) {
@@ -987,15 +987,15 @@ function extractAllCodesWithPositions(rawText) {
     return results;
 }
 
-// 智能链接与密码提取器
+// Smart link and password extractor
 function extractLinkAndCode(rawText) {
     if (!rawText) return null;
 
-    // ---- 阶段1: 提取所有密码及其位置 ----
+    // ---- Stage 1: Extract all passwords with positions ----
     const allCodes = extractAllCodesWithPositions(rawText);
     const password = allCodes.length > 0 ? allCodes[0].code : null;
 
-    // ---- 阶段2: 提取URL (双重策略) ----
+    // ---- Stage 2: Extract URLs (dual strategy) ----
     let urls = extractUrlsFromText(rawText);
 
     if (urls.length === 0) {
@@ -1007,11 +1007,11 @@ function extractLinkAndCode(rawText) {
 
     if (urls.length === 0 && !password) return null;
 
-    // ---- 阶段3: 为每个URL分配最近的密码（直接用锚点位置，不重搜 host）----
+    // ---- Stage 3: Assign nearest password to each URL (use anchor position directly, no re-search on host) ----
     for (let i = 0; i < urls.length; i++) {
         const urlStart = urls[i].anchorStart;
         if (urlStart === undefined) continue;
-        // 该URL在原文中的范围：[urlStart, nextUrlStart)
+        // This URL's range in the original text: [urlStart, nextUrlStart)
         const nextUrlStart = (i + 1 < urls.length && urls[i + 1].anchorStart !== undefined)
             ? urls[i + 1].anchorStart
             : rawText.length;
@@ -1027,7 +1027,7 @@ function extractLinkAndCode(rawText) {
     };
 }
 
-// 邮箱地址提取器
+// Email address extractor
 function extractEmailFromText(rawText) {
     if (!rawText || !rawText.includes('@')) return null;
     const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
@@ -1035,35 +1035,35 @@ function extractEmailFromText(rawText) {
     return m ? m[1] : null;
 }
 
-// 模块 07: 选区定位计算器 (Selection Geometry Calculator)
-// 三级降级策略：智能Rect -> 整体包围盒 -> 鼠标位置
+// Module 07: Selection Geometry Calculator
+// Three-tier fallback: Smart Rect -> Bounding Box -> Mouse Position
 
 function getSmartSelectionState(selection, mouseEvent) {
     if (!selection || selection.rangeCount === 0) return null;
 
     const range = selection.getRangeAt(0);
-    // 1. 尝试获取精细的矩形列表 (可能为空，特别是在 Input/Textarea 或 框架更新DOM时)
+    // 1. Get fine-grained rect list (may be empty, especially in Input/Textarea or during framework DOM updates)
     let rects = range.getClientRects();
 
     let targetRect = null;
     let isBackward = false;
     let isVertical = false;
 
-    // --- 阶段 A: 智能精确定位 (Smart Directional) ---
+    // --- Tier A: Smart directional positioning ---
     if (rects.length > 0) {
         const anchor = selection.anchorNode;
         const focus = selection.focusNode;
 
-        // 判定选区方向
+        // Determine selection direction
         if (anchor === focus) {
             isBackward = selection.anchorOffset > selection.focusOffset;
         } else {
-            // 使用位掩码判定节点位置
+            // Use bitmask to determine node position
             const pos = anchor.compareDocumentPosition(focus);
             if (pos & Node.DOCUMENT_POSITION_PRECEDING) isBackward = true;
         }
 
-        // 判定垂直排版 (仅检查 focusNode)
+        // Detect vertical writing mode (check focusNode only)
         let focusEl = focus.nodeType === 1 ? focus : focus.parentElement;
         if (focusEl) {
             const style = window.getComputedStyle(focusEl);
@@ -1071,19 +1071,19 @@ function getSmartSelectionState(selection, mouseEvent) {
             isVertical = writingMode.startsWith('vertical');
         }
 
-        // 根据方向获取头或尾的 Rect
+        // Get head or tail rect based on direction
         targetRect = isBackward ? rects[0] : rects[rects.length - 1];
     }
 
-    // 辅助函数：检测 Rect 是否无效 (0x0 且位于 0,0 通常意味着节点已脱离文档流)
+    // Helper: check if Rect is invalid (0x0 at 0,0 usually means the node has been detached from the document flow)
     const isInvalidRect = (r) => {
         return !r || (r.width === 0 && r.height === 0 && r.top === 0 && r.left === 0);
     };
 
-    // --- 阶段 B: 经典包围盒兜底 (Classic Bounding Box) ---
+    // --- Tier B: Classic bounding box fallback ---
     if (isInvalidRect(targetRect)) {
         const bounding = range.getBoundingClientRect();
-        // 只有当 bounding 也是有效的时候才使用
+        // Only use if bounding box is also valid
         if (!isInvalidRect(bounding)) {
             targetRect = bounding;
             isBackward = false;
@@ -1091,9 +1091,9 @@ function getSmartSelectionState(selection, mouseEvent) {
         }
     }
 
-    // --- 阶段 C: 鼠标坐标兜底 (Mouse Position Fallback) ---
+    // --- Tier C: Mouse position fallback ---
     if (isInvalidRect(targetRect) && mouseEvent) {
-        const size = 20; // 模拟一个光标高度
+        const size = 20; // Simulate cursor height
         targetRect = {
             top: mouseEvent.clientY - size,
             bottom: mouseEvent.clientY,
@@ -1108,7 +1108,7 @@ function getSmartSelectionState(selection, mouseEvent) {
         isVertical = false;
     }
 
-    // 如果所有尝试都失败（极罕见），返回 null
+    // If all attempts fail (extremely rare), return null
     if (isInvalidRect(targetRect)) return null;
 
     return {
@@ -1118,25 +1118,25 @@ function getSmartSelectionState(selection, mouseEvent) {
     };
 }
 
-// 模块 08: Shadow DOM 容器与样式 (Shadow DOM & Styles)
+// Module 08: Shadow DOM Container & Styles
 
-// 初始化 Shadow DOM 容器 (针对 SPA/AJAX 优化)
+// Initialize Shadow DOM container (optimized for SPA/AJAX)
 function initContainer() {
-    // 1. 检查 hostElement 是否存在且仍然连接在文档中 (isConnected)
+    // 1. Check if hostElement exists and is still connected to the document (isConnected)
     if (hostElement && hostElement.isConnected) return;
 
-    // 2. 如果 hostElement 存在但已从 DOM 脱落（被网页脚本清除），清理旧引用
+    // 2. If hostElement exists but has been detached from DOM (cleared by page scripts), clean up old reference
     if (hostElement) {
         hostElement = null;
         shadowRoot = null;
     }
 
-    // 3. 重新创建容器
+    // 3. Re-create container
     hostElement = document.createElement('div');
     hostElement.id = 'tm-smart-copy-host';
     hostElement.style.all = 'initial';
     hostElement.style.position = 'fixed';
-    hostElement.style.zIndex = '2147483647'; // Max Z-Index
+    hostElement.style.zIndex = '2147483647'; // Max z-index
     hostElement.style.top = '0';
     hostElement.style.left = '0';
     hostElement.style.width = '0';
@@ -1144,23 +1144,23 @@ function initContainer() {
     hostElement.style.overflow = 'visible';
     hostElement.style.pointerEvents = 'none';
 
-    // [重要] 挂载到 documentElement (html) 而不是 body
-    // 这样即使 body 被 SPA 框架重写，挂在 html 上的元素通常能幸存
+    // Important: mount on documentElement (html) instead of body
+    // This way even if body is overwritten by SPA framework, elements on html usually survive
     (document.documentElement || document.body).appendChild(hostElement);
 
     shadowRoot = hostElement.attachShadow({ mode: 'open' });
 
-    // 重新注入样式
+    // Re-inject styles
     const style = document.createElement('style');
     style.textContent = getStyles();
     shadowRoot.appendChild(style);
 }
 
-// 获取样式表字符串
+// Get stylesheet string
 function getStyles() {
     const isCol = getConfig('buttonStyle') === 'col';
-    const padRow = '10px 13.1415926px';   // 胶囊：上下略小，左右略大
-    const padCol = '10px';       // 纵向：正方形，四边一致
+    const padRow = '10px 13.1415926px';   // Capsule: slightly narrower top/bottom, wider left/right
+    const padCol = '10px';       // Column: square, equal on all sides
     return `
         :host { all: initial; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         .sc-container {
@@ -1212,7 +1212,7 @@ function getStyles() {
             transform: scale(0.98);
             background: rgba(255, 255, 255, 0.2);
         }
-        /* 深色模式覆盖 */
+        /* Dark mode overrides */
         .theme-dark-ui {
             background: rgba(30, 30, 30, 0.3);
             border: 1px solid transparent;
@@ -1231,7 +1231,7 @@ function getStyles() {
         .theme-dark-ui .sc-btn:active {
             background: rgba(255, 255, 255, 0.1);
         }
-        /* 分割线 */
+        /* Dividers */
         .divider {
             background: rgba(255, 255, 255, 0.25);
         }
@@ -1240,7 +1240,7 @@ function getStyles() {
         }
         .divider-v { width: 1px; height: 1.6em; align-self: center; }
         .divider-h { height: 1px; width: 100%; }
-        /* Toast 通知 */
+        /* Toast notification */
         .sc-toast {
             position: fixed;
             left: 50%;
@@ -1260,7 +1260,7 @@ function getStyles() {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         }
         .sc-toast.show { opacity: 1; }
-        /* ===== Liquid Glass + HDR Glow ===== */
+        /* ===== Glass refraction edges ===== */
         .sc-container {
             position: fixed;
             display: flex;
@@ -1321,7 +1321,7 @@ function getStyles() {
                 0 0 22px rgba(255,255,255,0.25),
                 0 0 36px rgba(255,255,255,0.15);
         }
-        /* ===== 玻璃折射边 ===== */
+        /* ===== Glass refraction edges ===== */
         .theme-light-ui.sc-container {
             background:
                 linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.08)),
@@ -1363,14 +1363,14 @@ function getStyles() {
                 0 0 12px rgba(255,255,255,0.06),
                 0 8px 26px rgba(0,0,0,0.32);
         }
-        /* 图标包装器：作为角标定位锚点，尺寸与SVG一致 */
+        /* Icon wrapper: serves as badge positioning anchor, same size as SVG */
         .sc-icon-wrap {
             position: relative;
             display: inline-flex;
             width: 18px;
             height: 18px;
         }
-        /* 链接数量角标: 右下角对齐图标右下角，叠在图标上层 */
+        /* Link count badge: bottom-right aligned, layered on top of icon */
         .sc-badge {
             position: absolute;
             right: 0;
@@ -1406,19 +1406,19 @@ function getStyles() {
     `;
 }
 
-// 模块 09: 拖拽链接预览子系统 (Drag Preview Subsystem)
+// Module 09: Drag Preview Subsystem
 
-let dragStartData = null; // 临时存储拖拽起点数据
+let dragStartData = null; // Temp storage for drag start data
 const PREVIEW_WIN_NAME = 'PicKitPreviewWindow';
 
-// 1. 处理拖拽开始
+// 1. Handle drag start
 function handleLinkDragStart(e) {
     if (!getConfig('enableDragPreview')) return;
 
-    // 精确判断：必须是左键拖拽，且目标是超链接（或在超链接内部）
+    // Precise check: must be left-button drag on a hyperlink (or inside one)
     const link = e.target.closest('a[href]');
 
-    // 排除无效链接（如 javascript:void(0) 或锚点）
+    // Exclude invalid links (e.g., javascript:void(0) or anchors)
     if (!link || !link.href || link.href.startsWith('javascript:') || link.href.startsWith('#')) {
         dragStartData = null;
         return;
@@ -1432,7 +1432,7 @@ function handleLinkDragStart(e) {
     };
 }
 
-// 2. 处理拖拽结束
+// 2. Handle drag end
 function handleLinkDragEnd(e) {
     if (!dragStartData) return;
 
@@ -1440,7 +1440,7 @@ function handleLinkDragEnd(e) {
     const endX = e.clientX;
     const endY = e.clientY;
 
-    /* ---------- 1. 视口外松开直接放弃 ---------- */
+    /* ---------- 1. Outside viewport: discard ---------- */
     if (
         endX < 0 || endY < 0 ||
         endX > window.innerWidth || endY > window.innerHeight
@@ -1449,20 +1449,20 @@ function handleLinkDragEnd(e) {
         return;
     }
 
-    /* ---------- 2. 输入区 / 富文本 / 拖放容器 过滤 ---------- */
+    /* ---------- 2. Input area / rich text / drop container filter ---------- */
     const target = document.elementFromPoint(endX, endY);
     if (target) {
-        // 2-1 输入框
+        // 2-1 Input fields
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
             dragStartData = null;
             return;
         }
-        // 2-2 富文本编辑
+        // 2-2 Rich text editing
         if (target.closest('[contenteditable="true"]')) {
             dragStartData = null;
             return;
         }
-        // 2-3 具有 dragover / drop 事件的容器
+        // 2-3 Container with dragover / drop events
         const dropZone = target.closest('[ondragover],[ondrop]');
         if (dropZone) {
             dragStartData = null;
@@ -1470,14 +1470,14 @@ function handleLinkDragEnd(e) {
         }
     }
 
-    /* ---------- 3. 距离阈值判断 ---------- */
+    /* ---------- 3. Distance threshold check ---------- */
     const dist = Math.hypot(endX - startX, endY - startY);
-    if (dist > 30) openPreviewWindow(url); // 距离阈值：30px
-    // 清理数据
+    if (dist > 30) openPreviewWindow(url); // Distance threshold: 30px
+    // Clean up data
     dragStartData = null;
 }
 
-// 3. 打开预览窗口
+// 3. Open preview window
 async function openPreviewWindow(url) {
     const screen = window.screen;
     const screenW = screen.availWidth;
@@ -1485,7 +1485,7 @@ async function openPreviewWindow(url) {
     const screenLeft = screen.availLeft || 0;
     const screenTop = screen.availTop || 0;
 
-    // 黄金分割比
+    // Golden ratio
     const GOLDEN_RATIO = 0.618;
 
     const width = Math.round(screenW * GOLDEN_RATIO);
@@ -1498,17 +1498,17 @@ async function openPreviewWindow(url) {
     window.open(url, PREVIEW_WIN_NAME, features);
 }
 
-// 模块 10: 超级取词模式 (Unlock Mode / Super Selection)
+// Module 10: Unlock Mode / Super Selection
 
 let isUnlockMode = false;
 let unlockStyleEl = null;
 let startPos = { x: 0, y: 0 };
-const modifiedElements = new Set(); //追踪受影响元素的集合
+const modifiedElements = new Set(); // Set of affected elements
 
-// 动态CSS：强制文本可选，屏蔽拖拽，屏蔽指针事件限制等
+// Dynamic CSS: force text selectable, block drag, disable pointer event restrictions, etc.
 function getUnlockCSS() {
     return `
-        /* --- 1. 全局强制可选 (分离 cursor 设置) --- */
+        /* --- 1. Global force selectable (separate cursor settings) --- */
         html, body, *:not([data-tm-policy="protected"]), [unselectable] {
             user-select: text !important;
             -webkit-user-select: text !important;
@@ -1516,12 +1516,12 @@ function getUnlockCSS() {
             -ms-user-select: text !important;
         }
 
-        /* 修复：html/body 保持 default cursor，防止全局污染 */
+        /* Fix: html/body keep default cursor to avoid global pollution */
         html, body {
             cursor: default !important;
         }
 
-        /* 修复：仅为实际文本元素设置 text cursor */
+        /* Fix: text cursor only for actual text elements */
         p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, pre, code,
         blockquote, article, section, main, aside, header, footer,
         nav, figcaption, label, time, mark, em, strong, i, b, u,
@@ -1533,11 +1533,11 @@ function getUnlockCSS() {
             cursor: text !important;
         }
 
-        /* 强制高亮颜色 */
+        /* Force highlight color */
         ::selection {background-color: #3390FF !important;color: #ffffff !important;text-shadow: none !important;}
         ::-moz-selection {background-color: #3390FF !important;color: #ffffff !important;text-shadow: none !important;}
 
-        /* 让链接看起来像普通文本，且禁止图片/链接被拖拽（干扰划词） */
+        /* Make links look like plain text, block image/link dragging (interferes with text selection) */
         a:not([data-tm-policy="protected"]),
         a *:not([data-tm-policy="protected"]),
         img:not([data-tm-policy="protected"]){
@@ -1547,13 +1547,13 @@ function getUnlockCSS() {
             text-decoration: none !important;
         }
 
-        /* 禁用常见的透明遮罩层交互，让鼠标穿透到下方文字 */
+        /* Disable interaction on common transparent overlays so clicks reach text below */
         div[style*="z-index"][style*="fixed"]:not([data-tm-policy="protected"]),
         div[style*="z-index"][style*="absolute"]:not([data-tm-policy="protected"]) {
             pointer-events: none !important;
         }
 
-        /* 修复：增强 pointer-events 恢复逻辑，覆盖更多容器类型 */
+        /* Fix: enhance pointer-events restoration logic, cover more container types */
         div:not([data-tm-policy="protected"]),
         article:not([data-tm-policy="protected"]),
         main:not([data-tm-policy="protected"]),
@@ -1580,7 +1580,7 @@ function getUnlockCSS() {
             pointer-events: auto !important;
         }
 
-        /* 针对被截断文本展开后的样式：隐藏滚动条但保留滚动功能 */
+        /* Style for expanded truncated text: hide scrollbar but keep scroll functionality */
         .tm-sc-expanded {
             scrollbar-width: none !important;
             -ms-overflow-style: none !important;
@@ -1593,7 +1593,7 @@ function getUnlockCSS() {
 
         a.absolute, a[style*="position: absolute"] { pointer-events: none !important; }
 
-        /* 保护标记优先级最高 */
+        /* Protected marker takes highest priority */
         [data-tm-policy="protected"][data-tm-policy="protected"][data-tm-policy="protected"],
         [data-tm-policy="protected"][data-tm-policy="protected"][data-tm-policy="protected"] * {
             user-select: none !important;
@@ -1606,7 +1606,7 @@ function getUnlockCSS() {
     `;
 }
 
-// 检查是否为受保护元素
+// Check if element is protected
 function isProtectedElement(target) {
     return target && target.closest && target.closest('[data-tm-policy="protected"]');
 }
@@ -1623,7 +1623,7 @@ function handleCaptureSelectStart(e) {
     e.stopImmediatePropagation();
 }
 
-// 拦截点击事件：如果是拖拽操作或点击链接，则阻止
+// Intercept click events: prevent if drag operation or link click
 function handleCaptureClick(e) {
     if (!isUnlockMode) return;
     if (isProtectedElement(e.target)) {
@@ -1652,7 +1652,7 @@ function handleCaptureClick(e) {
     }
 }
 
-// 鼠标按下时按需处理当前元素
+// Process current element on mousedown as needed
 function handleCaptureMouseDown(e) {
     if (!isUnlockMode) return;
     if (isProtectedElement(e.target)) {
@@ -1719,7 +1719,7 @@ function cleanInlineEvents() {
     });
 }
 
-// 鼠标悬停时智能展开截断文本
+// Smart expand truncated text on mouse hover
 function handleExpandHover(e) {
     if (!isUnlockMode) return;
     let target = e.target;
@@ -1746,7 +1746,7 @@ function handleExpandHover(e) {
     }
 }
 
-// 退出模式时清理所有展开的元素
+// Clean up all expanded elements when exiting mode
 function cleanupExpandedElements() {
     const elements = document.querySelectorAll('.tm-sc-expanded');
     elements.forEach(el => {
@@ -1763,7 +1763,7 @@ function cleanupExpandedElements() {
     });
 }
 
-// 开启/关闭模式
+// Toggle unlock mode
 function toggleUnlockMode(active) {
     if (active === isUnlockMode) return;
     isUnlockMode = active;
@@ -1823,7 +1823,7 @@ function toggleUnlockMode(active) {
     }
 }
 
-// 键盘监听
+// Keyboard listener
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isEditMode) {
         toggleEditMode(false);
@@ -1848,23 +1848,23 @@ window.addEventListener('blur', () => {
     if (isUnlockMode) toggleUnlockMode(false);
 });
 
-// 模块 11: 剪贴板操作与 Toast 通知 (Clipboard & Toast)
+// Module 11: Clipboard & Toast
 
-// 三级降级复制策略
+// Three-tier fallback copy strategy
 async function copyToClipboard(text, html) {
     try {
-        // 优先尝试构建 ClipboardItem 以保留样式 (如果不是纯文本)
+        // Prefer ClipboardItem to preserve formatting (unless plain text)
         if (html && typeof ClipboardItem !== 'undefined') {
             const htmlBlob = new Blob([html], { type: 'text/html' });
             const textBlob = new Blob([text], { type: 'text/plain' });
             const data = [new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })];
             await navigator.clipboard.write(data);
         } else {
-            // 回退到纯文本
+            // Fallback to plain text
             await navigator.clipboard.writeText(text);
         }
     } catch (e) {
-        // 降级使用 GM 特权 API_GM_setClipboard
+        // Fallback to privileged GM API GM_setClipboard
         if (typeof GM_setClipboard === 'function') {
             if (text) {
                 GM_setClipboard(text, 'text');
@@ -1875,7 +1875,7 @@ async function copyToClipboard(text, html) {
     }
 }
 
-// 显示 Toast (在 Shadow DOM 内)
+// Show toast (inside Shadow DOM)
 function showToast(msg) {
     if (!getConfig('enableToast')) return;
 
@@ -1894,10 +1894,10 @@ function showToast(msg) {
     }, 1200);
 }
 
-// 模块 12: 背景亮度检测与主题选择 (Background Brightness & Theme)
+// Module 12: Background Brightness & Theme
 
-// 智能获取网页背景亮度，返回 'light' 或 'dark' 以决定 UI 主题
-// 逻辑：网页背景深 -> 返回 'light' (浅色UI)；网页背景浅 -> 返回 'dark' (深色UI)
+// Smart page background brightness detection; returns 'light' or 'dark' to determine UI theme
+// Logic: dark page background → return 'light' (light UI); light page background → return 'dark' (dark UI)
 function getBestContrastTheme() {
     const getBgColor = (el) => {
         if (!el) return null;
@@ -1910,40 +1910,40 @@ function getBestContrastTheme() {
         const match = colorStr.match(/(\d+),\s*(\d+),\s*(\d+)/);
         if (!match) return null;
         const [r, g, b] = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
-        // 计算亮度 (YIQ公式)，结果 0~255，越小越暗
+        // Calculate brightness (YIQ formula), range 0~255, lower = darker
         return (r * 299 + g * 587 + b * 114) / 1000;
     };
 
-    // 1. 优先检测 body 背景
+    // 1. Prefer body background
     let brightness = getBrightness(getBgColor(document.body));
 
-    // 2. 如果 body 透明，检测 html (documentElement) 背景
+    // 2. If body is transparent, check html (documentElement) background
     if (brightness === null) {
         brightness = getBrightness(getBgColor(document.documentElement));
     }
 
-    // 3. 如果 html 也透明，回退到系统深色模式偏好
+    // 3. If html is also transparent, fallback to system dark mode preference
     if (brightness === null) {
         const sysIsDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         return sysIsDark ? 'theme-light-ui' : 'theme-dark-ui';
     }
 
-    // 4. 亮度 < 128 (深色背景) -> 用 'theme-light-ui' (浅色按钮)
+    // 4. Brightness < 128 (dark background) → use 'theme-light-ui' (light buttons)
     return brightness < 128 ? 'theme-light-ui' : 'theme-dark-ui';
 }
 
-// 模块 13: 按钮渲染引擎 (Button Renderer)
+// Module 13: Button Renderer
 
-// 渲染按钮 (支持 Copy/Search 模式 和 Paste 模式)
+// Render buttons (supports Copy/Search mode and Paste mode)
 function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', targetInput = null, isEditable = false, pasteCache = null) {
-    // 清理旧的
+    // Clean up old button
     const oldBtn = shadowRoot.querySelector('.sc-container');
     if (oldBtn) oldBtn.remove();
 
     const container = document.createElement('div');
     container.className = 'sc-container';
 
-    // 智能背景色检测与主题应用
+    // Smart background color detection and theme application
     const forceWB = getConfig('forceWhiteBlack');
     if (forceWB) {
         container.classList.add('theme-light-ui');
@@ -1954,9 +1954,9 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
 
     const isCol = getConfig('buttonStyle') === 'col';
 
-    // 模式: 编辑模式 (Edit Mode)
+    // Mode: Edit mode
     if (isEditMode) {
-        // 1. 删除按钮
+        // 1. Delete button
         const delBtn = document.createElement('div');
         delBtn.className = 'sc-btn';
         delBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>`;
@@ -1973,7 +1973,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
         div1.className = isCol ? 'divider divider-h' : 'divider divider-v';
         container.appendChild(div1);
 
-        // 2. 加粗按钮
+        // 2. Bold button
         const boldBtn = document.createElement('div');
         boldBtn.className = 'sc-btn';
         boldBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></svg>`;
@@ -1989,7 +1989,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
         div2.className = isCol ? 'divider divider-h' : 'divider divider-v';
         container.appendChild(div2);
 
-        // 3. 标记按钮
+        // 3. Highlight button
         const highlightBtn = document.createElement('div');
         highlightBtn.className = 'sc-btn';
         highlightBtn.innerHTML = `<?xml version="1.0" encoding="UTF-8"?><svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 44L6 25H12V17H36V25H42V44H6Z" fill="none" stroke="#000000" stroke-width="4" stroke-linejoin="bevel"/><path d="M17 17V8L31 4V17" stroke="#000000" stroke-width="4" stroke-linecap="round" stroke-linejoin="bevel"/></svg>`;
@@ -2004,9 +2004,9 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
         };
         container.appendChild(highlightBtn);
     }
-    // 模式 A: 默认模式
+    // Mode A: Default mode
     else if (mode === 'default' || mode === PASTE_MODE_THREE_BTNS) {
-        // 1. 复制按钮
+        // 1. Copy button
         const copyBtn = document.createElement('div');
         copyBtn.className = 'sc-btn';
         copyBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
@@ -2032,7 +2032,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
 
         const isInInput = targetInput !== null;
 
-        // 2. 剪切按钮 (仅在编辑区显示)
+        // 2. Cut button (only show in editable fields)
         if (isInInput && !isEditMode) {
             const div = document.createElement('div');
             div.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -2070,7 +2070,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(cutBtn);
         }
 
-        // 删除按钮 (输入区中)
+        // Delete button (inside input fields)
         if (getConfig('enableDeleteBtn') && isInInput) {
             const div2 = document.createElement('div');
             div2.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -2088,7 +2088,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             };
             container.appendChild(delBtn);
         }
-        // 搜索按钮 (仅在非编辑区且字数较少时显示)
+        // Search button (only show outside input fields with short texts)
         else if (!isInInput && !isEditMode && text.trim().length <= 32) {
             const div = document.createElement('div');
             div.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -2116,7 +2116,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(searchBtn);
         }
 
-        // @按钮 / 锁链按钮逻辑
+        // @ button / chain button logic
         const activeEl = document.activeElement;
         const isUserEditing = activeEl && (
             (['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && !activeEl.readOnly) ||
@@ -2124,7 +2124,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             document.designMode === 'on'
         );
         if (!isUserEditing && !targetInput && mode !== PASTE_MODE_THREE_BTNS) {
-            // 1. 先检测邮箱地址 (优先级高于链接)
+            // 1. Check email first (higher priority than links)
             const emailAddr = extractEmailFromText(text);
             if (emailAddr) {
                 const div = document.createElement('div');
@@ -2138,7 +2138,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 atBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                 atBtn.onclick = async (e) => {
                     e.stopPropagation();
-                    // 复制完整邮箱到剪贴板
+                    // Copy full email to clipboard
                     try {
                         await navigator.clipboard.writeText(emailAddr);
                     } catch (_) {
@@ -2151,8 +2151,8 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 };
                 container.appendChild(atBtn);
             } else {
-                // 2. 检测网址链接 (支持多链接)
-                // 中文模式下启用网盘提取码识别；非中文模式下仅提取纯URL
+                // 2. Detect URLs (supports multiple links)
+                // Chinese mode enables cloud drive extraction code; non-Chinese mode extracts plain URLs only
                 const curLangForLink = getConfig('language');
                 const isChineseForLink = curLangForLink === 'zh-CN' || (curLangForLink === 'auto' && navigator.language.startsWith('zh'));
                 const linkData = isChineseForLink ? extractLinkAndCode(text) : (() => {
@@ -2168,13 +2168,13 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     const chainBtn = document.createElement('div');
                     chainBtn.className = 'sc-btn';
 
-                    // 图标包装器 (18x18, 作为角标的定位锚点)
+                    // Icon wrapper (18x18, serves as badge positioning anchor)
                     const iconWrap = document.createElement('span');
                     iconWrap.className = 'sc-icon-wrap';
                     iconWrap.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
                     chainBtn.appendChild(iconWrap);
 
-                    // 角标：单链接+网盘提取码 → 钥匙图标；多链接 → 数字角标
+                    // Badge: single link + extraction code → key icon; multiple links → number badge
                     const isSingleLink = urlCount === 1;
                     if (isChineseForLink && isSingleLink && linkData.password) {
                         const badge = document.createElement('span');
@@ -2193,7 +2193,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                     chainBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                     chainBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        // 单链接 + 中文模式: 提取码写入闪电粘贴缓存
+                        // Single link + Chinese mode: write extraction code to lightning paste cache
                         if (isSingleLink && isChineseForLink && getConfig('enablePaste') && linkData.password) {
                             await safeSetValue('smart_paste_cache', {
                                 text: linkData.password,
@@ -2205,7 +2205,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                                 showToast(t('toast_password_pasted'));
                             }
                         }
-                        // 批量打开链接 (间隔200ms避免弹窗拦截)
+                        // Batch open links (200ms interval to avoid popup blocking)
                         linkData.urls.forEach((u, i) => {
                             setTimeout(() => {
                                 safeOpenTab(u.url, { active: i === 0 });
@@ -2218,7 +2218,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             }
         }
 
-        // 检测是否需要显示"校正"按钮
+        // Check if "correct" button should be shown
         const curLang = getConfig('language');
         const isChineseEnv = curLang === 'zh-CN' || (curLang === 'auto' && navigator.language.startsWith('zh'));
         if (isChineseEnv && targetInput) {
@@ -2231,7 +2231,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 const correctBtn = document.createElement('div');
                 correctBtn.className = 'sc-btn';
                 correctBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M9 15l2 2 4-4"></path></svg>`;
-                correctBtn.title = "校正";
+                correctBtn.title = "Correct";
                 correctBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
                 correctBtn.onclick = (e) => {
                     e.stopPropagation();
@@ -2241,7 +2241,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             }
         }
 
-        // 3. 闪电粘贴三按钮模式追加粘贴按钮
+        // 3. Append paste button in three-button lightning paste mode
         if (mode === PASTE_MODE_THREE_BTNS) {
             const div = document.createElement('div');
             div.className = isCol ? 'divider divider-h' : 'divider divider-v';
@@ -2256,7 +2256,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 const cache = await safeGetValue('smart_paste_cache', null);
                 if (cache && cache.text) {
                     performPaste(document.activeElement, cache.text);
-                    // 粘贴后重置时间戳，允许同页面反复使用闪电粘贴
+                    // Reset timestamp after paste to allow repeated use on same page
                     await safeSetValue('smart_paste_cache', {
                         text: cache.text,
                         timestamp: Date.now()
@@ -2268,13 +2268,13 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             container.appendChild(pasteBtn);
         }
     }
-    // 模式 B: 粘贴模式 (闪电粘贴 / 网盘提取码)
+    // Mode B: Paste mode (lightning paste / cloud drive extraction code)
     else if (mode === 'paste') {
         const isPanCode = pasteCache && pasteCache.type === 'pan_code';
         const pasteBtn = document.createElement('div');
         pasteBtn.className = 'sc-btn';
         if (isPanCode) {
-            // 钥匙图标 (网盘提取码专用)
+            // Key icon (for cloud drive extraction code)
             pasteBtn.innerHTML = '<svg viewBox="0 0 48 48" width="18" height="18" stroke="currentColor" stroke-width="3" fill="none"><path d="M22.8682 24.2982C25.4105 26.7935 26.4138 30.4526 25.4971 33.8863C24.5805 37.32 21.8844 40.0019 18.4325 40.9137C14.9806 41.8256 11.3022 40.8276 8.79375 38.2986C5.02208 34.4141 5.07602 28.2394 8.91499 24.4206C12.754 20.6019 18.9613 20.5482 22.8664 24.3L22.8682 24.2982Z"/><path d="M23 24L40 7"/><path d="M30.3052 16.9001L35.7337 22.3001L42.0671 16.0001L36.6385 10.6001L30.3052 16.9001Z"/></svg>';
             pasteBtn.title = t('btn_paste') + ' ' + (pasteCache.text || '');
         } else {
@@ -2293,8 +2293,8 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
                 return;
             }
             performPaste(targetInput, text);
-            // 粘贴后重置时间戳，允许同页面反复使用闪电粘贴
-            // 注意：这里缓存的是目标输入框内容而非剪贴板内容，仅在直接粘贴模式下重置
+            // Reset timestamp after paste to allow repeated use on same page
+            // Note: caching target input content here, not clipboard content; reset only in direct paste mode
             const existingCache = await safeGetValue('smart_paste_cache', null);
             if (existingCache && existingCache.text) {
                 await safeSetValue('smart_paste_cache', {
@@ -2313,7 +2313,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
 
     shadowRoot.appendChild(container);
 
-    // 计算位置 (通用逻辑)
+    // Calculate position (common logic)
     container.style.left = '-9999px';
 
     requestAnimationFrame(() => {
@@ -2364,7 +2364,7 @@ function renderButton(rect, mouseX, mouseY, text, html, mode = 'default', target
             }
         }
 
-        // 边缘检测
+        // Edge detection
         const margin = 10;
         targetX = Math.max(margin, Math.min(targetX, viewportW - btnW - margin));
         targetY = Math.max(margin, Math.min(targetY, viewportH - btnH - margin));
@@ -2392,7 +2392,7 @@ function hideUI() {
     cachedSelection = { text: '', html: '' };
 }
 
-// 模块 14: 事件处理系统 (Event Handlers)
+// Module 14: Event Handlers
 
 function handleSelectionMouseUp(e) {
     if (hostElement && e.composedPath().includes(hostElement)) return;
@@ -2450,14 +2450,14 @@ function handleSelectionMouseUp(e) {
 
 function handleGlobalMouseDown(e) {
     if (hostElement && e.composedPath().includes(hostElement)) {
-        // 点击了按钮内部，保持
+        // Clicked inside button, keep it
     } else {
         const btn = shadowRoot && shadowRoot.querySelector('.sc-container');
         if (btn) btn.classList.remove('visible');
     }
 }
 
-// 滚动与调整大小处理
+// Scroll and resize handler
 const handleResizeOrScroll = () => {
     if (!hostElement) return;
     const mode = getConfig('scrollRepaintMode');
@@ -2511,19 +2511,19 @@ function handleKeydownHideUI(e) {
     hideUI();
 }
 
-// 输入框粘贴鼠标抬起处理
+// Input paste mouseup handler
 function handleInputPasteMouseUp(e) {
     if (!getConfig('enablePaste')) return;
     const target = e.target;
     const isInput = (['INPUT', 'TEXTAREA'].includes(target.tagName) && !target.disabled && !target.readOnly) || target.isContentEditable;
     if (!isInput) return;
     setTimeout(async () => {
-        // 读取闪电粘贴缓存
+        // Read lightning paste cache
         const cache = await safeGetValue('smart_paste_cache', null);
         if (!cache || !cache.text) return;
         if (Date.now() - cache.timestamp > 8000) return;
 
-        // 网盘提取码缓存（仅中文模式）：强制单粘贴按钮（钥匙图标）
+        // Cloud drive extraction code cache (Chinese mode only): force single paste button (key icon)
         const curLang = getConfig('language');
         const isChineseEnv = curLang === 'zh-CN' || (curLang === 'auto' && navigator.language.startsWith('zh'));
         if (isChineseEnv && cache.type === 'pan_code') {
@@ -2533,7 +2533,7 @@ function handleInputPasteMouseUp(e) {
             return;
         }
 
-        // 普通闪电粘贴: 检查输入框内选区
+        // Regular lightning paste: check selection within input
         let selectedText = '';
         let hasSelection = false;
         if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {
@@ -2571,11 +2571,11 @@ function handleInputPasteMouseUp(e) {
     }, 20);
 }
 
-// 模块 15: 智能文本校正 (Smart Text Correction)
+// Module 15: Smart Text Correction
 
-// 9条中文排版规范的核心校正算法
+// Core correction algorithm with 9 Chinese typography rules
 function smartCorrectText(text, isInputType) {
-    // 0. 基础判定
+    // 0. Basic determination
     const hasHanzi = /[\u4e00-\u9fa5]/.test(text);
     const hasCNPunct = /[，。：；？！""''（）【】《》]/.test(text);
     const hasNum = /\d/.test(text);
@@ -2599,7 +2599,7 @@ function smartCorrectText(text, isInputType) {
 
     let result = text;
 
-    // --- 规范 9: 换行/删空判定 (优先级最高) ---
+    // --- Rule 9: Line break / whitespace removal (highest priority) ---
     if (activeRules.basic) {
         const rule9Regex = /([\u4e00-\u9fa5。])(\s{2,})(?=[\u4e00-\u9fa5]|\d{1,3}(?:[、.]|\s))/g;
         result = applyRule(result, rule9Regex, (match, p1, p2) => {
@@ -2607,7 +2607,7 @@ function smartCorrectText(text, isInputType) {
         });
     }
 
-    // --- 规范 6: 纯中文环境下的英文标点转中文 ---
+    // --- Rule 6: English punctuation to Chinese in pure Chinese environment ---
     if (activeRules.pureCN) {
         const parts = result.split(/(".*?"|".*?")/g);
         result = parts.map((part, i) => {
@@ -2622,13 +2622,13 @@ function smartCorrectText(text, isInputType) {
         }).join('');
     }
 
-    // --- 规范 1: 中英之间加空格 ---
+    // --- Rule 1: Add space between Chinese and English ---
     if (activeRules.basic) {
         result = applyRule(result, /([\u4e00-\u9fa5])([a-zA-Z])/g, '$1 $2');
         result = applyRule(result, /([a-zA-Z])([\u4e00-\u9fa5])/g, '$1 $2');
     }
 
-    // --- 规范 2: 中文与数字(含运算)加空格 ---
+    // --- Rule 2: Add space between Chinese and numbers (including operators) ---
     if (activeRules.basic) {
         const isMathContext = /[+*/=]|等于/.test(text);
         const charSet = isMathContext ? '[\\d+\\-*/=]' : '[\\d]';
@@ -2638,18 +2638,18 @@ function smartCorrectText(text, isInputType) {
         result = applyRule(result, regex2, '$1 ');
     }
 
-    // --- 规范 3: 字符/数字与后方标点去空格 ---
+    // --- Rule 3: Remove space between char/number and trailing punctuation ---
     if (activeRules.punct) {
         result = applyRule(result, /([a-zA-Z0-9\u4e00-\u9fa5])\s+([,.:;?!，。：；？！、\])}（）】【《》[({""''"'])/g, '$1$2');
     }
 
-    // --- 规范 4: 数字/字符与单位 (%, ℃, $) ---
+    // --- Rule 4: Number/char and unit (%, ℃, $) ---
     if (activeRules.unit) {
         result = applyRule(result, /(\d)\s+([%℃$])/g, '$1$2');
         result = applyRule(result, /([^\s\d])([%℃$])/g, '$1 $2');
     }
 
-    // --- 规范 5: 中文句号去重 ---
+    // --- Rule 5: Deduplicate Chinese periods ---
     if (activeRules.basic) {
         const parts = result.split(/(".*?"|".*?")/g);
         result = parts.map((part, i) => {
@@ -2660,12 +2660,12 @@ function smartCorrectText(text, isInputType) {
         }).join('');
     }
 
-    // --- 规范 7: 数字间中文冒号转英文 ---
+    // --- Rule 7: Chinese colon between numbers to English colon ---
     if (activeRules.unit) {
         result = applyRule(result, /(\d)\s*：\s*(\d)/g, '$1:$2');
     }
 
-    // --- 规范 8: 双引号修正 (仅当只有一对时) ---
+    // --- Rule 8: Fix double quotes (only when exactly one pair) ---
     if (activeRules.punct) {
         const quoteCount = (result.match(/[""]/g) || []).length;
         if (quoteCount === 2) {
@@ -2680,13 +2680,13 @@ function smartCorrectText(text, isInputType) {
     return result === text ? null : result;
 }
 
-// 执行校正操作
+// Execute correction operation
 async function handleTextCorrection(target, originalText) {
     const isInput = target.tagName === 'INPUT';
     const newText = smartCorrectText(originalText, isInput);
 
     if (!newText) {
-        showToast('无需校正');
+        showToast('No correction needed');
         return;
     }
 
@@ -2701,16 +2701,16 @@ async function handleTextCorrection(target, originalText) {
         performPaste(target, newText);
     }
 
-    showToast('文本已校正');
+    showToast('Text corrected');
     hideUI();
 }
 
-// 执行粘贴的核心逻辑 (三级降级策略)
+// Core paste logic (three-tier fallback strategy)
 function performPaste(target, text) {
     if (!target) return;
     target.focus();
 
-    // 策略 1: document.execCommand (保留撤销能力，最稳妥)
+    // Strategy 1: document.execCommand (preserves undo, safest)
     try {
         const success = document.execCommand('insertText', false, text);
         if (success) {
@@ -2719,7 +2719,7 @@ function performPaste(target, text) {
         }
     } catch (e) {}
 
-    // 策略 2: 直接赋值 + 触发事件 (兼容 Vue/React)
+    // Strategy 2: Direct assignment + dispatch events (Vue/React compat)
     try {
         if (target.isContentEditable) {
             const sel = window.getSelection();
@@ -2761,7 +2761,7 @@ function performPaste(target, text) {
     }
 }
 
-// 模块 16: 元素屏蔽子系统 (Element Blocker Subsystem)
+// Module 16: Element Blocker Subsystem
 
 let pickerOverlay = null;
 let pickerHandler = null;
@@ -2769,7 +2769,7 @@ let pickerClickHandler = null;
 let pickerEscHandler = null;
 let pickerRightClickHandler = null;
 
-// 自动应用已保存的规则
+// Auto-apply saved blocking rules
 function applySavedBlockingRules() {
     const rules = configCache['blocked_elements'] || {};
     const domain = location.hostname;
@@ -2779,13 +2779,13 @@ function applySavedBlockingRules() {
     }
 }
 
-// 激活拾取模式
+// Activate picker mode
 function activateElementPicker() {
     if (pickerOverlay) disablePicker();
 
     showToast(t('picker_active'));
 
-    // 创建高亮遮罩
+    // Create highlight overlay
     pickerOverlay = document.createElement('div');
     pickerOverlay.style.all = 'initial';
     pickerOverlay.style.position = 'fixed';
@@ -2847,7 +2847,7 @@ function activateElementPicker() {
     document.addEventListener('keydown', pickerEscHandler, true);
 }
 
-// 退出拾取模式
+// Exit picker mode
 function disablePicker() {
     if (pickerOverlay) {
         pickerOverlay.remove();
@@ -2860,7 +2860,7 @@ function disablePicker() {
     pickerRightClickHandler = null;
 }
 
-// 生成尽可能短且唯一的 CSS 选择器
+// Generate the shortest possible unique CSS selector
 function generateCssSelector(el) {
     if (el.id) return '#' + CSS.escape(el.id);
 
@@ -2883,7 +2883,7 @@ function generateCssSelector(el) {
     return selector;
 }
 
-// 保存规则到 GM 存储
+// Save rule to GM storage
 function saveBlockRule(selector) {
     const rules = configCache['blocked_elements'] || {};
     const domain = location.hostname;
@@ -2896,12 +2896,12 @@ function saveBlockRule(selector) {
     }
 }
 
-// 模块 17: 烟花粒子特效 (Festival Particle Effects)
+// Module 17: Festival Particle Effects
 
-// 春节/圣诞 彩蛋逻辑判断
+// Chinese New Year / Christmas easter egg logic
 function getFestivalType() {
     const now = new Date();
-    // 1. 尝试检测农历 (Chinese Lunar)
+    // 1. Try to detect lunar calendar (Chinese Lunar)
     try {
         const formatter = new Intl.DateTimeFormat("zh-CN-u-ca-chinese", { month: "numeric", day: "numeric" });
         if (formatter.resolvedOptions().calendar === 'chinese') {
@@ -2917,7 +2917,7 @@ function getFestivalType() {
         }
     } catch (e) {}
 
-    // 2. 回退逻辑：公历 12月25日 圣诞
+    // 2. Fallback logic: December 25th Christmas
     if (now.getMonth() === 11 && now.getDate() === 25) {
         return 'XMAS';
     }
@@ -2925,7 +2925,7 @@ function getFestivalType() {
     return 'NONE';
 }
 
-// 触发烟花特效
+// Trigger fireworks effect
 function triggerSpringFestivalEffect(x, y, shadowRoot) {
     const festival = getFestivalType();
     if (festival === 'NONE') return;
@@ -2999,7 +2999,7 @@ function triggerSpringFestivalEffect(x, y, shadowRoot) {
     shadowRoot.appendChild(fragment);
 }
 
-// 获取 Toast 提示文案
+// Get toast copy text
 function getSpringFestivalToastText() {
     const festival = getFestivalType();
     if (festival === 'CNY') {
@@ -3010,12 +3010,12 @@ function getSpringFestivalToastText() {
     return t('toast_copied');
 }
 
-// 模块 19: 启动引导 (Bootstrap)
+// Module 19: Bootstrap
 
-// 闪电粘贴条件式 visibilitychange 清理 (动态注册/注销)
-// 复制/剪切写入缓存时注销监听，粘贴重置时间戳时注册监听
-// 页面隐藏时写入过期缓存覆盖 (严禁主动删除，只允许单向覆盖)
-// 注意：这两个函数必须定义在全局作用域，因为 renderButton 中的 onclick 回调需要访问它们
+// Lightning paste conditional visibilitychange cleanup (dynamic register/unregister)
+// Unregister listener when copy/cut writes cache, register when paste resets timestamp
+// On page hidden: overwrite with expired cache (never actively delete, one-way overwrite only)
+// Note: these two functions must be defined in global scope because onclick callbacks in renderButton need to access them
 let _visibilityChangeHandler = null;
 
 function registerVisibilityCleanup() {
@@ -3043,19 +3043,19 @@ function unregisterVisibilityCleanup() {
 
     (async function main() {
         try {
-            // 1. 等待配置加载
+            // 1. Wait for config to load
             await initConfiguration();
 
-            // 首次运行时根据读取到的时区设置默认搜索引擎
+            // Auto-set default search engine based on timezone on first run
             await initDefaultSearchEngine();
 
-            // 2. 配置加载完后，再注册菜单 (这样菜单里的 getConfig 才能读到正确的值)
+            // 2. Register menus after config is loaded (so getConfig in menus reads correct values)
             registerMenus();
 
-            // 3. 应用屏蔽规则
+            // 3. Apply blocking rules
             applySavedBlockingRules();
 
-            // 4. unlock mode 下，智能拦截 Ctrl+滚轮
+            // 4. In unlock mode, smart intercept Ctrl+scroll
             const handleWheelZoom = (e) => {
                 if (!e.ctrlKey || !isUnlockMode) return;
 
@@ -3073,7 +3073,7 @@ function unregisterVisibilityCleanup() {
             };
             window.addEventListener('wheel', handleWheelZoom, { passive: false, capture: true });
 
-            // 5. 统一注册所有事件监听器
+            // 5. Register all event listeners
             document.addEventListener('mouseup', handleSelectionMouseUp, false);
             document.addEventListener('mouseup', handleInputPasteMouseUp, true);
             document.addEventListener('mousedown', handleGlobalMouseDown, false);
@@ -3082,14 +3082,14 @@ function unregisterVisibilityCleanup() {
             window.addEventListener('resize', handleResizeOrScroll, { passive: true });
             document.addEventListener('keydown', handleKeydownHideUI, true);
 
-            // 6. 拖拽预览事件监听 (仅在主窗口生效)
+            // 6. Drag preview event listeners (main window only)
             if (window.name !== PREVIEW_WIN_NAME) {
                 document.addEventListener('dragstart', handleLinkDragStart, false);
                 document.addEventListener('dragend', handleLinkDragEnd, false);
             }
 
         } catch (e) {
-            //console.error('Smart Copy 启动失败:', e);
+            //console.error('Smart Copy startup failed:', e);
         }
     })();
 })();

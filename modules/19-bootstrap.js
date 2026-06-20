@@ -1,9 +1,9 @@
-// 模块 19: 启动引导 (Bootstrap)
+// Module 19: Bootstrap
 
-// 闪电粘贴条件式 visibilitychange 清理 (动态注册/注销)
-// 复制/剪切写入缓存时注销监听，粘贴重置时间戳时注册监听
-// 页面隐藏时写入过期缓存覆盖 (严禁主动删除，只允许单向覆盖)
-// 注意：这两个函数必须定义在全局作用域，因为 renderButton 中的 onclick 回调需要访问它们
+// Lightning paste conditional visibilitychange cleanup (dynamic register/unregister)
+// Unregister listener when copy/cut writes cache, register when paste resets timestamp
+// On page hidden: overwrite with expired cache (never actively delete, one-way overwrite only)
+// Note: these two functions must be defined in global scope because onclick callbacks in renderButton need to access them
 let _visibilityChangeHandler = null;
 
 function registerVisibilityCleanup() {
@@ -31,19 +31,19 @@ function unregisterVisibilityCleanup() {
 
     (async function main() {
         try {
-            // 1. 等待配置加载
+            // 1. Wait for config to load
             await initConfiguration();
 
-            // 首次运行时根据读取到的时区设置默认搜索引擎
+            // Auto-set default search engine based on timezone on first run
             await initDefaultSearchEngine();
 
-            // 2. 配置加载完后，再注册菜单 (这样菜单里的 getConfig 才能读到正确的值)
+            // 2. Register menus after config is loaded (so getConfig in menus reads correct values)
             registerMenus();
 
-            // 3. 应用屏蔽规则
+            // 3. Apply blocking rules
             applySavedBlockingRules();
 
-            // 4. unlock mode 下，智能拦截 Ctrl+滚轮
+            // 4. In unlock mode, smart intercept Ctrl+scroll
             const handleWheelZoom = (e) => {
                 if (!e.ctrlKey || !isUnlockMode) return;
 
@@ -61,7 +61,7 @@ function unregisterVisibilityCleanup() {
             };
             window.addEventListener('wheel', handleWheelZoom, { passive: false, capture: true });
 
-            // 5. 统一注册所有事件监听器
+            // 5. Register all event listeners
             document.addEventListener('mouseup', handleSelectionMouseUp, false);
             document.addEventListener('mouseup', handleInputPasteMouseUp, true);
             document.addEventListener('mousedown', handleGlobalMouseDown, false);
@@ -70,14 +70,14 @@ function unregisterVisibilityCleanup() {
             window.addEventListener('resize', handleResizeOrScroll, { passive: true });
             document.addEventListener('keydown', handleKeydownHideUI, true);
 
-            // 6. 拖拽预览事件监听 (仅在主窗口生效)
+            // 6. Drag preview event listeners (main window only)
             if (window.name !== PREVIEW_WIN_NAME) {
                 document.addEventListener('dragstart', handleLinkDragStart, false);
                 document.addEventListener('dragend', handleLinkDragEnd, false);
             }
 
         } catch (e) {
-            //console.error('Smart Copy 启动失败:', e);
+            //console.error('Smart Copy startup failed:', e);
         }
     })();
 })();

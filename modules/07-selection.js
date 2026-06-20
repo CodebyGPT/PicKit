@@ -1,32 +1,32 @@
-// 模块 07: 选区定位计算器 (Selection Geometry Calculator)
-// 三级降级策略：智能Rect -> 整体包围盒 -> 鼠标位置
+// Module 07: Selection Geometry Calculator
+// Three-tier fallback: Smart Rect -> Bounding Box -> Mouse Position
 
 function getSmartSelectionState(selection, mouseEvent) {
     if (!selection || selection.rangeCount === 0) return null;
 
     const range = selection.getRangeAt(0);
-    // 1. 尝试获取精细的矩形列表 (可能为空，特别是在 Input/Textarea 或 框架更新DOM时)
+    // 1. Get fine-grained rect list (may be empty, especially in Input/Textarea or during framework DOM updates)
     let rects = range.getClientRects();
 
     let targetRect = null;
     let isBackward = false;
     let isVertical = false;
 
-    // --- 阶段 A: 智能精确定位 (Smart Directional) ---
+    // --- Tier A: Smart directional positioning ---
     if (rects.length > 0) {
         const anchor = selection.anchorNode;
         const focus = selection.focusNode;
 
-        // 判定选区方向
+        // Determine selection direction
         if (anchor === focus) {
             isBackward = selection.anchorOffset > selection.focusOffset;
         } else {
-            // 使用位掩码判定节点位置
+            // Use bitmask to determine node position
             const pos = anchor.compareDocumentPosition(focus);
             if (pos & Node.DOCUMENT_POSITION_PRECEDING) isBackward = true;
         }
 
-        // 判定垂直排版 (仅检查 focusNode)
+        // Detect vertical writing mode (check focusNode only)
         let focusEl = focus.nodeType === 1 ? focus : focus.parentElement;
         if (focusEl) {
             const style = window.getComputedStyle(focusEl);
@@ -34,19 +34,19 @@ function getSmartSelectionState(selection, mouseEvent) {
             isVertical = writingMode.startsWith('vertical');
         }
 
-        // 根据方向获取头或尾的 Rect
+        // Get head or tail rect based on direction
         targetRect = isBackward ? rects[0] : rects[rects.length - 1];
     }
 
-    // 辅助函数：检测 Rect 是否无效 (0x0 且位于 0,0 通常意味着节点已脱离文档流)
+    // Helper: check if Rect is invalid (0x0 at 0,0 usually means the node has been detached from the document flow)
     const isInvalidRect = (r) => {
         return !r || (r.width === 0 && r.height === 0 && r.top === 0 && r.left === 0);
     };
 
-    // --- 阶段 B: 经典包围盒兜底 (Classic Bounding Box) ---
+    // --- Tier B: Classic bounding box fallback ---
     if (isInvalidRect(targetRect)) {
         const bounding = range.getBoundingClientRect();
-        // 只有当 bounding 也是有效的时候才使用
+        // Only use if bounding box is also valid
         if (!isInvalidRect(bounding)) {
             targetRect = bounding;
             isBackward = false;
@@ -54,9 +54,9 @@ function getSmartSelectionState(selection, mouseEvent) {
         }
     }
 
-    // --- 阶段 C: 鼠标坐标兜底 (Mouse Position Fallback) ---
+    // --- Tier C: Mouse position fallback ---
     if (isInvalidRect(targetRect) && mouseEvent) {
-        const size = 20; // 模拟一个光标高度
+        const size = 20; // Simulate cursor height
         targetRect = {
             top: mouseEvent.clientY - size,
             bottom: mouseEvent.clientY,
@@ -71,7 +71,7 @@ function getSmartSelectionState(selection, mouseEvent) {
         isVertical = false;
     }
 
-    // 如果所有尝试都失败（极罕见），返回 null
+    // If all attempts fail (extremely rare), return null
     if (isInvalidRect(targetRect)) return null;
 
     return {
